@@ -1,0 +1,133 @@
+================================================================================
+HOLINESS REVIVAL MOVEMENT WORLDWIDE (HOREMOW) - FRONTEND PROJECT BRIEF
+================================================================================
+
+1. PROJECT OVERVIEW
+-------------------
+Application: HOREMOW Web Platform (Frontend)
+Organization: Holiness Revival Movement Worldwide
+Motto: "Holiness without which no man shall see the Lord" (Hebrews 12:14)
+Founder & International Director: Pastor Paul Rika
+Purpose: A modern, reverent, highly interactive, and secure web application 
+delivering uncompromised biblical truth, multi-media sermon archives, daily devotionals,
+global conference management, an accredited overseers directory, digital giving via 
+Paystack & PayPal with automated email receipts, and an administrative CMS.
+
+2. TECHNOLOGY STACK
+-------------------
+- Framework: React 19 (TypeScript)
+- Build Tool: Vite 7
+- Styling: Tailwind CSS & Material UI (MUI v6)
+- Icons: Lucide React
+- Testing: Vitest & @testing-library/react
+- Backend API Integration: Django REST Framework with SimpleJWT (v1 API)
+- Deployment Target: Vercel, Netlify, or static web servers with client-side routing
+
+3. CORE PUBLIC FEATURES
+-----------------------
+- Dynamic Hero Video Portal:
+  * Interactive 3D mouse-tracking tilt effect with perspective styling.
+  * Streams background ministry video (video.mp4) on an auto-playing muted loop.
+  * Glowing animated rings, central Holiness Cross, and sound toggle / HD expand modal.
+- Ambient Scroll-Behind Video:
+  * Subtly persists fixed behind page sections on scroll (opacity-25 with dark scrim).
+  * Maintains high contrast, clean typography, and zero distraction for text legibility.
+- 3D Cylindrical Gallery:
+  * 3D perspective carousel showcasing 28 authentic conference & crusade photos.
+  * Touch/drag swipe interaction, auto-rotation, reflection floor, and category filters.
+- Accredited Overseers Directory (/directory):
+  * Public directory of International, National, Regional, and Departmental overseers.
+  * Searchable by name, country, and office with direct phone, email, and counseling inquiry.
+- Online Giving & Donation Gateway (/give):
+  * Dual-gateway checkout: Paystack (Cards, Bank Transfer, USSD) & PayPal (Global Cards & Balance).
+  * Multi-currency support (NGN, USD, GBP, EUR) and ministry designation selectors.
+  * Automated official email receipt dispatch featuring Pastor Paul Rika's blessing.
+  * On-screen printable receipt dialog with verified reference code.
+- Media, Devotional & Literature Center:
+  * Sermons (/sermons): Audio streaming, video player, and sermon outline transcripts.
+  * Daily Devotional (/devotional): Today's devotional reader, calendar picker, and scripture meditation.
+  * Bookstore (/bookstore): Holiness books and tracts catalog with ordering/download links.
+  * Broadcasts (/broadcasts): 24/7 web television and satellite broadcast schedules.
+  * Fellowship Locations (/locations): Global fellowship centers and regional contacts.
+
+4. ADMINISTRATIVE CMS & PORTAL (/admin)
+----------------------------------------
+- Authentication & Self-Service Provisioning (/admin/login):
+  * Secure Sign In with JWT access/refresh token exchange against Django backend.
+  * "Create Admin Account" tab for provisioning authorized administrators (SuperAdmin, Content Editor, Finance Auditor, Moderator).
+- Dashboard (/admin/dashboard):
+  * Real-time KPI summary (total offerings volume, site visitors, overseers count, sermons published).
+  * Quick access shortcuts to content, gallery, transactions, and analytics.
+- Transactions Ledger (/admin/transactions):
+  * Complete audit trail of Paystack and PayPal transactions.
+  * Filter by status, payment provider, and search by donor or reference.
+  * One-click "Resend Receipt Email" button and "Export CSV" for financial compliance.
+- Site Visitation & Analytics (/admin/analytics):
+  * Visitor intelligence: total pageviews, unique visitors, average session duration, bounce rate.
+  * Daily traffic bar chart (7-day, 30-day, and quarterly intervals).
+  * Global geographic breakdown (Nigeria, USA, UK, Ghana, Kenya, South Africa, Canada, etc.).
+  * Device breakdowns (mobile, desktop, tablet) and real-time live activity stream.
+- Overseers & Contacts Directory Manager (/admin/directory):
+  * Add, update, toggle active status, and remove overseers, coordinators, and directors.
+- Site Content Managers:
+  * Homepage & About customizer, Sermons manager, Devotionals manager, Events manager, Bookstore manager, Gallery photo manager, Locations manager, Donation funds manager, Blog manager, Broadcasts scheduler, and Site Settings.
+
+5. BRANDING & MEDIA ASSETS
+--------------------------
+- Primary Colors: Brand Blue (#1A4B8C), Brand Green (#1E7B34), Pure White, Cream/Page (#FAF3E0 / #F7F7F3), Gold (#e5be64), Ink (#111820).
+- Official Logo: Embedded official seal from frontend/src/assets/horemowlogo.jfif.
+- Leadership Portraits: Official Cloudinary photography of Pastor Paul Rika and Mummy Linda Paul Rika.
+- Conference Media: 28 high-resolution Cloudinary crusade photos.
+
+6. REPOSITORY STRUCTURE (FRONTEND)
+----------------------------------
+frontend/
+├── public/                     # Static files (video.mp4, horemowlogo.jfif)
+├── src/
+│   ├── assets/                 # Brand assets & logos
+│   ├── components/             # Reusable UI components
+│   │   ├── admin/              # Admin CMS editors, managers, and sidebars
+│   │   ├── common/             # Eyebrows, page intros, headings, notices
+│   │   ├── home/               # Hero video portal, ambient video, stats, 3D gallery
+│   │   └── layout/             # Header, footer, logo
+│   ├── data/                   # Default datasets, media assets, conference photos
+│   ├── layouts/                # PublicLayout and AdminLayout
+│   ├── lib/                    # API client, auth session manager, reactive contentStore
+│   ├── pages/                  # Public and administrative route views
+│   ├── App.tsx                 # Root application router and title metadata
+│   ├── main.tsx                # React DOM entry point
+│   └── styles.css              # Tailwind base, 3D perspective, and keyframe animations
+├── index.html                  # HTML entry point with favicon and SEO meta
+├── package.json                # Project dependencies and script definitions
+├── tsconfig.json               # TypeScript compiler configuration
+├── vite.config.ts              # Vite bundling, plugins, and Vitest setup
+└── .env.example                # Template for environment variables
+
+7. SCRIPTS & COMMANDS
+---------------------
+- Install Dependencies:
+    npm install
+- Start Local Dev Server:
+    npm run dev        (Default: http://localhost:5173)
+- Run TypeScript Validation:
+    npm run typecheck   (Runs tsc -b with zero errors)
+- Run Automated Test Suite:
+    npm run test        (Runs Vitest across all component and route test suites)
+- Compile Production Build:
+    npm run build       (Produces minified production assets in frontend/dist/)
+- Preview Production Build:
+    npm run preview
+
+8. ENVIRONMENT CONFIGURATION
+----------------------------
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+(Points to the Django backend REST endpoints; fallbacks gracefully to offline reactive store if backend is unavailable.)
+
+9. GIT & PUSH INSTRUCTIONS
+--------------------------
+- All Markdown (.md) files are strictly excluded from commits via .gitignore.
+- To stage and commit the frontend:
+    git add frontend/
+    git commit -m "feat(frontend): complete horemow frontend with 3d video portal, paystack/paypal giving, analytics, overseers directory, and admin cms"
+    git push origin <your-branch-name>
+================================================================================

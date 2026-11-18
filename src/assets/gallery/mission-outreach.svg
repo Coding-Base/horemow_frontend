@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="480" x2="480" y1="0" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7E9B9A"/>
+      <stop offset="1" stop-color="#E3D6B9"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h960v640H0z"/>
+  <circle cx="759" cy="173" r="69" fill="#F0D8A7"/>
+  <path fill="#526D55" d="m0 421 199-189 170 153 179-203 255 234 157-127v351H0V421Z"/>
+  <path fill="#344C3D" d="m0 503 218-129 202 118 188-128 210 139 142-79v216H0V503Z"/>
+  <path fill="#D4C4A8" d="M349 502h262v138H349z"/>
+  <path fill="#1A4B8C" d="m319 505 161-144 161 144H319Z"/>
+  <path fill="#fff" fill-opacity=".88" d="M457 430h46v66h-46z"/>
+  <path stroke="#fff" stroke-opacity=".55" d="M58 119h290M58 139h190"/>
+  <text x="54" y="78" fill="#fff" font-family="Arial,sans-serif" font-size="17" letter-spacing="4">MISSION & COMMUNITY</text>
+</svg>

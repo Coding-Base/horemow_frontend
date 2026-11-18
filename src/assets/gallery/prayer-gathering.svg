@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="60" x2="850" y1="0" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#314C61"/>
+      <stop offset="1" stop-color="#152638"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(0 354 -385 0 480 136)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D4C4A8" stop-opacity=".66"/>
+      <stop offset="1" stop-color="#D4C4A8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h960v640H0z"/>
+  <path fill="url(#glow)" d="M0 0h960v640H0z"/>
+  <circle cx="480" cy="268" r="164" stroke="#fff" stroke-opacity=".26"/>
+  <circle cx="480" cy="268" r="122" stroke="#fff" stroke-opacity=".22"/>
+  <path fill="#D4C4A8" d="M459 166h42v76h76v42h-76v76h-42v-76h-76v-42h76v-76Z"/>
+  <path fill="#101D2A" d="M0 507c70-35 121-32 183 3 65-42 117-39 178 4 64-38 109-35 169 5 61-40 112-40 176 1 72-40 119-34 180 2 32-19 53-20 74-8v134H0V507Z"/>
+  <path stroke="#1E7B34" stroke-width="3" d="M74 567c113-28 214-27 310 2 98-30 196-30 294 0 73-20 143-20 208-4"/>
+  <text x="54" y="78" fill="#fff" font-family="Arial,sans-serif" font-size="17" letter-spacing="4">PRAYER & DEVOTION</text>
+</svg>

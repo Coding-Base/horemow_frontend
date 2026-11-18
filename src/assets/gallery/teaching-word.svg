@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="960" y1="0" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D4C4A8"/>
+      <stop offset="1" stop-color="#9E8967"/>
+    </linearGradient>
+    <linearGradient id="book" x1="266" x2="701" y1="197" y2="445" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#E9E7DD"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h960v640H0z"/>
+  <circle cx="480" cy="324" r="248" stroke="#fff" stroke-opacity=".3"/>
+  <circle cx="480" cy="324" r="205" stroke="#1A4B8C" stroke-opacity=".28"/>
+  <path fill="#1A4B8C" d="M178 187c107-39 205-26 302 37v252c-92-59-191-71-302-34V187Z"/>
+  <path fill="#153A62" d="M782 187c-107-39-205-26-302 37v252c92-59 191-71 302-34V187Z"/>
+  <path fill="url(#book)" d="M198 205c103-32 192-18 272 33v212c-86-44-175-55-272-27V205Z"/>
+  <path fill="#fff" d="M762 205c-103-32-192-18-272 33v212c86-44 175-55 272-27V205Z"/>
+  <path stroke="#1A4B8C" stroke-opacity=".38" stroke-width="3" d="M234 263h172M234 296h172M234 329h172M727 263H555m172 33H555m172 33H555"/>
+  <path stroke="#1E7B34" stroke-width="12" d="M480 245v192"/>
+  <text x="54" y="78" fill="#183B5D" font-family="Arial,sans-serif" font-size="17" letter-spacing="4">THE WORD & TEACHING</text>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="86" x2="893" y1="27" y2="634" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#214A70"/>
+      <stop offset="1" stop-color="#10263C"/>
+    </linearGradient>
+    <linearGradient id="light" x1="478" x2="478" y1="72" y2="458" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D4C4A8" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#D4C4A8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h960v640H0z"/>
+  <path fill="url(#light)" d="M331 0h298L784 514H176L331 0Z" opacity=".55"/>
+  <path stroke="#fff" stroke-opacity=".22" d="M90 441h780M162 490h636"/>
+  <path fill="#D4C4A8" fill-opacity=".72" d="M444 167h72v104h104v63H516v104h-72V334H340v-63h104V167Z"/>
+  <path fill="#0D1D2D" d="M0 520c73-46 118-54 180-10 57-40 106-45 161-2 64-47 111-43 169 4 52-39 99-39 153 1 61-42 117-37 181 7 47-31 81-30 116-3v123H0V520Z"/>
+  <path fill="#1E7B34" fill-opacity=".85" d="M0 601c126-22 202-35 320-12 116-25 210-22 321 0 112-20 202-15 319 4v47H0v-39Z"/>
+  <text x="54" y="78" fill="#fff" font-family="Arial,sans-serif" font-size="17" letter-spacing="4">WORSHIP & FELLOWSHIP</text>
+</svg>
