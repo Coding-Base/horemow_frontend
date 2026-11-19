@@ -33,6 +33,12 @@ export default function AdminLayout() {
     setMobileNavOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/admin/login?session_expired=1", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLogout = async () => {
     await logout();
     navigate("/admin/login");

@@ -26,6 +26,14 @@ export async function apiGet<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("horemow_auth_user");
+      localStorage.removeItem("horemow_auth_tokens");
+      window.dispatchEvent(new CustomEvent("horemow_auth_changed"));
+      if (window.location.pathname.startsWith("/admin") && window.location.pathname !== "/admin/login") {
+        window.location.href = "/admin/login?session_expired=1";
+      }
+    }
     const body: unknown = await response.json().catch(() => undefined);
     throw new ApiError(
       `The request failed (${response.status}).`,

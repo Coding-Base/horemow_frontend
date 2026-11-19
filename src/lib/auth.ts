@@ -39,13 +39,41 @@ export function getStoredTokens(): AuthTokens | null {
   }
 }
 
+export function isTokenExpired(token: string): boolean {
+  if (!token) return true;
+  if (token.startsWith("mock_")) return false;
+
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return false;
+    const now = Math.floor(Date.now() / 1000);
+    // 10s buffer before expiration
+    return payload.exp <= now + 10;
+  } catch {
+    return true;
+  }
+}
+
 export function isAuthenticated(): boolean {
-  return Boolean(getStoredUser() && getStoredTokens()?.access);
+  const user = getStoredUser();
+  const tokens = getStoredTokens();
+  if (!user || !tokens?.access) return false;
+
+  if (!isTokenExpired(tokens.access)) return true;
+  if (tokens.refresh && !isTokenExpired(tokens.refresh)) return true;
+
+  clearAuthSession();
+  return false;
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
   const tokens = getStoredTokens();
-  if (!tokens?.refresh) return null;
+  if (!tokens?.refresh || isTokenExpired(tokens.refresh)) {
+    await logoutAdmin(true);
+    return null;
+  }
 
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh/`, {
@@ -53,7 +81,10 @@ export async function refreshAccessToken(): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: tokens.refresh }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await logoutAdmin(true);
+      return null;
+    }
     const data = await res.json();
     const newAccess = data.access;
     if (newAccess) {
@@ -76,7 +107,18 @@ export async function refreshAccessToken(): Promise<string | null> {
 export async function getValidAccessToken(): Promise<string | null> {
   const tokens = getStoredTokens();
   if (!tokens?.access) return null;
-  return tokens.access;
+
+  if (!isTokenExpired(tokens.access)) {
+    return tokens.access;
+  }
+
+  if (tokens.refresh && !isTokenExpired(tokens.refresh)) {
+    const newAccess = await refreshAccessToken();
+    if (newAccess) return newAccess;
+  }
+
+  await logoutAdmin(true);
+  return null;
 }
 
 export function hasPermission(user: AuthUser | null, permissionKey: string): boolean {
@@ -209,9 +251,9 @@ export async function registerAdmin(payload: {
   return data.user as AuthUser;
 }
 
-export async function logoutAdmin(): Promise<void> {
+export async function logoutAdmin(redirect = false): Promise<void> {
   const tokens = getStoredTokens();
-  if (tokens?.refresh) {
+  if (tokens?.refresh && !tokens.refresh.startsWith("mock_")) {
     try {
       await fetch(`${API_BASE_URL}/auth/logout/`, {
         method: "POST",
@@ -226,24 +268,44 @@ export async function logoutAdmin(): Promise<void> {
     }
   }
   clearAuthSession();
+  if (redirect && typeof window !== "undefined") {
+    if (window.location.pathname.startsWith("/admin") && window.location.pathname !== "/admin/login") {
+      window.location.href = "/admin/login?session_expired=1";
+    }
+  }
 }
 
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(getStoredUser);
+  const [isAuth, setIsAuth] = useState<boolean>(isAuthenticated);
 
   useEffect(() => {
-    const handleUpdate = () => setUser(getStoredUser());
+    const handleUpdate = () => {
+      setUser(getStoredUser());
+      setIsAuth(isAuthenticated());
+    };
     window.addEventListener("horemow_auth_changed", handleUpdate);
     window.addEventListener("storage", handleUpdate);
+
+    // Periodic check every 15 seconds to automatically detect expired sessions
+    const timer = setInterval(() => {
+      const active = isAuthenticated();
+      setIsAuth(active);
+      if (!active && getStoredUser()) {
+        logoutAdmin(true);
+      }
+    }, 15000);
+
     return () => {
       window.removeEventListener("horemow_auth_changed", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
+      clearInterval(timer);
     };
   }, []);
 
   return {
     user,
-    isAuthenticated: Boolean(user),
-    logout: logoutAdmin,
+    isAuthenticated: isAuth,
+    logout: () => logoutAdmin(false),
   };
 }

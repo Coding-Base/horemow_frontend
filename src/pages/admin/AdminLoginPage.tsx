@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AnimatePresence,
   motion,
@@ -20,6 +20,8 @@ import { loginAdmin, registerAdmin } from "../../lib/auth";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get("session_expired") === "1";
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +226,11 @@ export default function AdminLoginPage() {
                   key={isRegistering ? "register" : "login"}
                   transition={{ duration: 0.2 }}
                 >
+                  {sessionExpired && !error && (
+                    <Alert className="mt-5" severity="warning">
+                      Your session has expired. Please sign in again to continue.
+                    </Alert>
+                  )}
                   {error && (
                     <Alert className="mt-5" severity="error">
                       {error}
