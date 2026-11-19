@@ -8,6 +8,7 @@ import {
   Check,
   AlertCircle,
   Upload,
+  Loader2,
   Globe,
   User,
   Clock,
@@ -158,15 +159,23 @@ export default function AdminBlogManager() {
     }
   };
 
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsUploadingImage(true);
+      setStatus(null);
       try {
-        const dataUrl = await fileToDataUrl(file);
-        setThumbnailUrl(dataUrl);
+        const cloudinaryUrl = await fileToDataUrl(file);
+        setThumbnailUrl(cloudinaryUrl);
+        setStatus({ type: "success", text: "Image successfully uploaded to Cloudinary!" });
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to load image";
+        const message = err instanceof Error ? err.message : "Failed to upload image";
         setStatus({ type: "error", text: message });
+      } finally {
+        setIsUploadingImage(false);
+        e.target.value = "";
       }
     }
   };
@@ -598,12 +607,17 @@ export default function AdminBlogManager() {
                   />
                 </div>
                 <div className="sm:col-span-5 flex items-center gap-2">
-                  <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm">
-                    <Upload size={14} />
-                    <span>Upload Image</span>
+                  <label className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm ${isUploadingImage ? "opacity-60 cursor-not-allowed" : ""}`}>
+                    {isUploadingImage ? (
+                      <Loader2 size={14} className="animate-spin text-brand-blue" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    <span>{isUploadingImage ? "Uploading to Cloudinary..." : "Upload Image"}</span>
                     <input
                       accept="image/*"
                       className="hidden"
+                      disabled={isUploadingImage}
                       onChange={handleImageFileChange}
                       type="file"
                     />

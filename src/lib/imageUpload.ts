@@ -3,24 +3,6 @@ import { getValidAccessToken } from "./auth";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
 
 /**
- * Fallback to local Data URL (base64) preview if offline or server is unconfigured.
- */
-function readLocalDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Failed to process image file."));
-      }
-    };
-    reader.onerror = () => reject(new Error("Error reading file."));
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
  * Uploads an image file to Cloudinary through the backend API.
  * Automatically saves a MediaAsset and returns the public secure URL.
  */
@@ -33,43 +15,61 @@ export async function uploadImageToCloudinary(file: File, folder = "horemow_medi
     throw new Error("Image size must be less than 10MB.");
   }
 
+  // Check if API_BASE_URL is pointing to localhost while running on production domain
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1" &&
+    API_BASE_URL.includes("localhost")
+  ) {
+    throw new Error(
+      "Frontend is not linked to backend. Add 'VITE_API_BASE_URL' in Render Frontend Environment variables (e.g. https://your-backend.onrender.com/api/v1)."
+    );
+  }
+
+  const token = await getValidAccessToken();
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  let response: Response;
   try {
-    const token = await getValidAccessToken();
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("folder", folder);
-
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/media/upload/`, {
+    response = await fetch(`${API_BASE_URL}/media/upload/`, {
       method: "POST",
       headers,
       body: formData,
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.url) {
-        return data.url;
-      }
-    } else {
-      const errData = await response.json().catch(() => null);
-      console.warn("Backend Cloudinary upload failed:", errData?.error?.message || response.statusText);
-    }
-  } catch (err) {
-    console.warn("Cloudinary upload request error, falling back to local data URL:", err);
+  } catch (err: unknown) {
+    throw new Error(
+      `Cannot connect to backend at ${API_BASE_URL}. Ensure CORS_ALLOWED_ORIGINS on backend includes ${window.location.origin}`
+    );
   }
 
-  // Graceful fallback to local data URL if backend or Cloudinary is unreachable
-  return readLocalDataUrl(file);
+  if (!response.ok) {
+    const errData = await response.json().catch(() => null);
+    const msg =
+      errData?.error?.message ||
+      errData?.detail ||
+      `Cloudinary upload failed (HTTP ${response.status}). Check backend Cloudinary credentials.`;
+    throw new Error(msg);
+  }
+
+  const data = await response.json();
+  if (!data?.url) {
+    throw new Error("Cloudinary upload completed but no URL was returned by server.");
+  }
+
+  return data.url;
 }
 
 /**
  * Primary export used across admin managers.
- * Now routes directly to Cloudinary upload!
+ * Routes directly to Cloudinary upload!
  */
 export async function fileToDataUrl(file: File, folder = "horemow_media"): Promise<string> {
   return uploadImageToCloudinary(file, folder);
