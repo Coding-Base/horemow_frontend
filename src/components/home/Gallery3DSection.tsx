@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@mui/material";
-import { useGalleryContent } from "../../lib/contentStore";
+import { useGalleryContent, useHomepageContent } from "../../lib/contentStore";
 import type { ConferenceImage } from "../../data/mediaAssets";
 import Eyebrow from "../common/Eyebrow";
 
@@ -26,6 +26,7 @@ function prefersReducedMotion() {
 
 export default function Gallery3DSection() {
   const images = useGalleryContent();
+  const homepageContent = useHomepageContent();
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -42,6 +43,13 @@ export default function Gallery3DSection() {
   );
 
   const total = filteredImages.length;
+
+  useEffect(() => {
+    if (currentIndex >= total) setCurrentIndex(0);
+    if (selectedImage && !images.some((image) => image.id === selectedImage.id)) {
+      setSelectedImage(null);
+    }
+  }, [currentIndex, images, selectedImage, total]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -162,15 +170,14 @@ export default function Gallery3DSection() {
           <div>
             <Eyebrow>
               <span className="flex items-center gap-1.5 text-[#e5be64]">
-                <Sparkles size={14} /> Global Revivals in 3D Motion
+                <Sparkles size={14} /> {homepageContent.gallery.eyebrow}
               </span>
             </Eyebrow>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">
-               Conference & Crusade Gallery.
+              {homepageContent.gallery.title}
             </h2>
             <p className="mt-3 max-w-2xl text-xs leading-6 text-slate-300 sm:text-sm">
-              Watch holy assemblies and revival meetings move dynamically in 3D perspective.
-              Click any photograph to inspect details or navigate using arrows and categories.
+              {homepageContent.gallery.description}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -338,6 +345,11 @@ export default function Gallery3DSection() {
               </div>
             );
           })}
+          {total === 0 && (
+            <div className="absolute inset-x-4 flex h-64 items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[.03] text-center text-sm text-slate-300 sm:inset-x-20">
+              No photographs are available in this gallery category yet.
+            </div>
+          )}
         </div>
 
         {/* Carousel Controls, Progress & Slide Count */}
@@ -345,7 +357,8 @@ export default function Gallery3DSection() {
           <div className="flex items-center gap-2">
             <button
               aria-label="Previous photograph"
-              className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-[#e5be64] hover:text-[#112437]"
+              className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-[#e5be64] hover:text-[#112437] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={total < 2}
               onClick={prevSlide}
               type="button"
             >
@@ -353,14 +366,15 @@ export default function Gallery3DSection() {
             </button>
             <button
               aria-label="Next photograph"
-              className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-[#e5be64] hover:text-[#112437]"
+              className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-[#e5be64] hover:text-[#112437] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={total < 2}
               onClick={nextSlide}
               type="button"
             >
               <ArrowRight size={18} />
             </button>
             <span className="ml-3 text-xs font-semibold text-slate-300">
-              {currentIndex + 1} <span className="text-slate-500">/</span> {total}
+              {total === 0 ? 0 : currentIndex + 1} <span className="text-slate-500">/</span> {total}
             </span>
           </div>
 

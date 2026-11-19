@@ -2,15 +2,24 @@ import { Check, RefreshCw, Save, ShieldCheck } from "lucide-react";
 import { Alert, Button, TextField } from "@mui/material";
 import { useState } from "react";
 import {
+  getGalleryContent,
   getHomepageContent,
+  resetGalleryContent,
   resetHomepageContent,
+  saveGalleryContent,
   saveHomepageContent,
   type HomepageContent,
 } from "../../lib/contentStore";
+import HomeCardsEditor from "./HomeCardsEditor";
+import type { ConferenceImage } from "../../data/mediaAssets";
 
 export default function AdminContentEditor() {
   const [formData, setFormData] = useState<HomepageContent>(getHomepageContent);
-  const [savedStatus, setSavedStatus] = useState<string | null>(null);
+  const [galleryCards, setGalleryCards] = useState<ConferenceImage[]>(getGalleryContent);
+  const [savedStatus, setSavedStatus] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const handleHeroChange = (field: keyof HomepageContent["hero"], value: string) => {
     setFormData((prev) => ({
@@ -52,16 +61,41 @@ export default function AdminContentEditor() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const invalidStat = formData.stats.some(
+      (card) => !card.number.trim() || !card.label.trim() || !card.sub.trim(),
+    );
+    if (invalidStat) {
+      setSavedStatus({
+        type: "error",
+        text: "Complete the value, title, and supporting text for every statistic card before saving.",
+      });
+      return;
+    }
+
+    const invalidGalleryCard = galleryCards.some(
+      (card) => !card.title.trim() || !card.url.trim(),
+    );
+    if (invalidGalleryCard) {
+      setSavedStatus({
+        type: "error",
+        text: "Every 3D gallery card needs a title and image before saving.",
+      });
+      return;
+    }
+
     saveHomepageContent(formData);
-    setSavedStatus("Homepage content successfully saved and published!");
+    saveGalleryContent(galleryCards);
+    setSavedStatus({ type: "success", text: "Homepage content successfully saved and published!" });
     setTimeout(() => setSavedStatus(null), 4000);
   };
 
   const handleReset = () => {
     if (window.confirm("Reset all homepage sections to official default content?")) {
       const reset = resetHomepageContent();
+      const resetGallery = resetGalleryContent();
       setFormData(reset);
-      setSavedStatus("Homepage restored to official defaults.");
+      setGalleryCards(resetGallery);
+      setSavedStatus({ type: "success", text: "Homepage restored to official defaults." });
       setTimeout(() => setSavedStatus(null), 4000);
     }
   };
@@ -69,8 +103,12 @@ export default function AdminContentEditor() {
   return (
     <div className="space-y-8">
       {savedStatus && (
-        <Alert icon={<Check size={18} />} severity="success">
-          {savedStatus}
+        <Alert
+          icon={savedStatus.type === "success" ? <Check size={18} /> : undefined}
+          onClose={() => setSavedStatus(null)}
+          severity={savedStatus.type}
+        >
+          {savedStatus.text}
         </Alert>
       )}
 
@@ -338,6 +376,32 @@ export default function AdminContentEditor() {
             />
           </div>
         </div>
+
+        <section className="space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-brand-blue">5. Homepage Cards</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Manage the impact statistics and the images and captions used by the 3D gallery.
+            </p>
+          </div>
+          <HomeCardsEditor
+            gallery={formData.gallery}
+            galleryCards={galleryCards}
+            onGalleryChange={(gallery) => {
+              setFormData((previous) => ({ ...previous, gallery }));
+              setSavedStatus(null);
+            }}
+            onGalleryCardsChange={(cards) => {
+              setGalleryCards(cards);
+              setSavedStatus(null);
+            }}
+            onStatsChange={(stats) => {
+              setFormData((previous) => ({ ...previous, stats }));
+              setSavedStatus(null);
+            }}
+            stats={formData.stats}
+          />
+        </section>
 
         {/* Submit Actions */}
         <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">

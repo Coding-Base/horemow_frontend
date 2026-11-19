@@ -1,33 +1,17 @@
 import { BookOpen, Calendar, Globe2, ShieldCheck } from "lucide-react";
+import { useHomepageContent } from "../../lib/contentStore";
+import type { HomepageStatCard } from "../../lib/contentStore";
 
-const stats = [
-  {
-    icon: Globe2,
-    number: "50+",
-    label: "Nations Reached",
-    sub: "Global mission outposts and crusades",
-  },
-  {
-    icon: Calendar,
-    number: "40+",
-    label: "Years in Ministry",
-    sub: "Proclaiming undiluted holiness",
-  },
-  {
-    icon: ShieldCheck,
-    number: "84+",
-    label: "Fellowship Branches",
-    sub: "Centres for holy living and prayer",
-  },
-  {
-    icon: BookOpen,
-    number: "Millions",
-    label: "Free Books Distributed",
-    sub: "Truth literature shared worldwide",
-  },
-];
+const icons = {
+  globe: Globe2,
+  calendar: Calendar,
+  shield: ShieldCheck,
+  book: BookOpen,
+} satisfies Record<HomepageStatCard["icon"], typeof Globe2>;
 
 export default function HomeStatsSection() {
+  const { stats } = useHomepageContent();
+
   return (
     <section
       aria-label="Ministry Impact Statistics"
@@ -35,23 +19,31 @@ export default function HomeStatsSection() {
       data-scroll-reveal
     >
       <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/95 p-6 shadow-xl backdrop-blur-md sm:grid-cols-2 lg:grid-cols-4 lg:p-8">
-        {stats.map(({ icon: Icon, number, label, sub }) => (
-          <div
-            className="group flex items-start gap-4 rounded-xl p-3 transition duration-300 hover:bg-slate-50"
-            key={label}
-          >
-            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-soft-blue text-brand-blue shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-brand-blue group-hover:text-white">
-              <Icon size={22} />
-            </span>
-            <div>
-              <span className="font-serif text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
-                {number}
+        {stats.map((stat) => {
+          const Icon = icons[stat.icon];
+
+          return (
+            <div
+              className="group flex items-start gap-4 rounded-xl p-3 transition duration-300 hover:bg-slate-50"
+              key={stat.id}
+            >
+              <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-soft-blue text-brand-blue shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-brand-blue group-hover:text-white">
+                {stat.image ? (
+                  <img alt="" className="size-full object-cover" src={stat.image} />
+                ) : (
+                  <Icon size={22} />
+                )}
               </span>
-              <h3 className="text-xs font-bold text-slate-800">{label}</h3>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{sub}</p>
+              <div className="min-w-0">
+                <span className="font-serif text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+                  {stat.number}
+                </span>
+                <h3 className="text-xs font-bold text-slate-800">{stat.label}</h3>
+                <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{stat.sub}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

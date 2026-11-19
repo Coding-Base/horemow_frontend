@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import Eyebrow from "../components/common/Eyebrow";
 import PageIntro from "../components/common/PageIntro";
-import { useContactContent, useGivingContent } from "../lib/contentStore";
+import { recordTransaction, useContactContent, useGivingContent } from "../lib/contentStore";
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1"
@@ -154,6 +154,25 @@ export default function GivePage() {
           if (data.success && data.data) {
             setVerifiedReceipt(data.data);
             setReceiptModalOpen(true);
+            try {
+              recordTransaction({
+                id: data.data.transaction_id || data.data.reference,
+                reference: data.data.reference,
+                project: data.data.project || selected || "General Ministry Offering",
+                amount: String(data.data.amount),
+                currency: data.data.currency || currency,
+                donor_name: data.data.donor_name || donorName || "Anonymous Donor",
+                donor_email: data.data.donor_email || donorEmail,
+                donor_phone: donorPhone || undefined,
+                provider: (prov === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "PAYPAL",
+                status: "SUCCESSFUL",
+                created_at: data.data.completed_at || new Date().toISOString(),
+                completed_at: data.data.completed_at || new Date().toISOString(),
+                email_sent: Boolean(data.data.email_sent),
+              });
+            } catch {
+              // Ignore local record issue
+            }
           }
         })
         .catch((err) => {

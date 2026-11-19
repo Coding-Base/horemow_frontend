@@ -43,6 +43,42 @@ export function isAuthenticated(): boolean {
   return Boolean(getStoredUser() && getStoredTokens()?.access);
 }
 
+export async function refreshAccessToken(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.refresh) return null;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh: tokens.refresh }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const newAccess = data.access;
+    if (newAccess) {
+      const updatedTokens: AuthTokens = {
+        access: newAccess,
+        refresh: data.refresh || tokens.refresh,
+      };
+      const user = getStoredUser();
+      if (user) {
+        saveAuthSession(user, updatedTokens);
+      }
+      return newAccess;
+    }
+  } catch (err) {
+    console.error("Token refresh failed", err);
+  }
+  return null;
+}
+
+export async function getValidAccessToken(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.access) return null;
+  return tokens.access;
+}
+
 export function hasPermission(user: AuthUser | null, permissionKey: string): boolean {
   if (!user) return true;
   if (user.role === "SUPERADMIN") return true;
@@ -155,6 +191,7 @@ export async function registerAdmin(payload: {
   first_name: string;
   last_name: string;
   role?: string;
+  auth_code?: string;
 }): Promise<AuthUser> {
   const response = await fetch(`${API_BASE_URL}/auth/register/`, {
     method: "POST",

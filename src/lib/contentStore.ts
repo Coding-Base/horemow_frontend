@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LEADERSHIP_IMAGES, CONFERENCE_GALLERY_IMAGES, type ConferenceImage } from "../data/mediaAssets";
+import { getValidAccessToken, refreshAccessToken } from "./auth";
 import {
   sermons as initialSermons,
   publications as initialPublications,
@@ -47,6 +48,21 @@ export type HomepageContent = {
     description: string;
     actionText: string;
   };
+  gallery: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  stats: HomepageStatCard[];
+};
+
+export type HomepageStatCard = {
+  id: string;
+  number: string;
+  label: string;
+  sub: string;
+  icon: "globe" | "calendar" | "shield" | "book";
+  image: string;
 };
 
 export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
@@ -89,6 +105,46 @@ export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
       "Support the printing and distribution of free holiness literature, crusades, and global broadcast operations.",
     actionText: "Giving information",
   },
+  gallery: {
+    eyebrow: "Global Revivals in 3D Motion",
+    title: "Conference & Crusade Gallery.",
+    description:
+      "When the word is taught in the spirit of the apostles there is repentance, salvation, sanctification, revival and deliverance. Hearts are being cleansed, ignorance disappears, and God’s word is spread to all.",
+  },
+  stats: [
+    {
+      id: "nations-reached",
+      number: "50+",
+      label: "Nations Reached",
+      sub: "Global mission outposts and crusades",
+      icon: "globe",
+      image: "",
+    },
+    {
+      id: "years-in-ministry",
+      number: "40+",
+      label: "Years in Ministry",
+      sub: "Proclaiming undiluted holiness",
+      icon: "calendar",
+      image: "",
+    },
+    {
+      id: "fellowship-branches",
+      number: "84+",
+      label: "Fellowship Branches",
+      sub: "Centres for holy living and prayer",
+      icon: "shield",
+      image: "",
+    },
+    {
+      id: "free-books-distributed",
+      number: "Millions",
+      label: "Free Books Distributed",
+      sub: "Truth literature shared worldwide",
+      icon: "book",
+      image: "",
+    },
+  ],
 };
 
 /* -------------------------------------------------------------
@@ -430,7 +486,19 @@ function saveToStorage<T>(key: string, data: T): void {
 /* -------------------------------------------------------------
  * GETTERS & SAVERS FOR ALL DOMAINS
  * ------------------------------------------------------------- */
-export const getHomepageContent = () => loadFromStorage("homepage", DEFAULT_HOMEPAGE_CONTENT);
+export const getHomepageContent = (): HomepageContent => {
+  const stored = loadFromStorage<Partial<HomepageContent>>("homepage", {});
+  return {
+    ...DEFAULT_HOMEPAGE_CONTENT,
+    ...stored,
+    hero: { ...DEFAULT_HOMEPAGE_CONTENT.hero, ...stored.hero },
+    welcome: { ...DEFAULT_HOMEPAGE_CONTENT.welcome, ...stored.welcome },
+    leadership: { ...DEFAULT_HOMEPAGE_CONTENT.leadership, ...stored.leadership },
+    givingBanner: { ...DEFAULT_HOMEPAGE_CONTENT.givingBanner, ...stored.givingBanner },
+    gallery: { ...DEFAULT_HOMEPAGE_CONTENT.gallery, ...stored.gallery },
+    stats: stored.stats ?? DEFAULT_HOMEPAGE_CONTENT.stats,
+  };
+};
 export const saveHomepageContent = (d: HomepageContent) => saveToStorage("homepage", d);
 export const resetHomepageContent = () => {
   saveHomepageContent(DEFAULT_HOMEPAGE_CONTENT);
@@ -451,6 +519,10 @@ export const saveEventsContent = (d: MinistryEvent[]) => saveToStorage("events",
 
 export const getGalleryContent = () => loadFromStorage("gallery", CONFERENCE_GALLERY_IMAGES);
 export const saveGalleryContent = (d: ConferenceImage[]) => saveToStorage("gallery", d);
+export const resetGalleryContent = () => {
+  saveGalleryContent(CONFERENCE_GALLERY_IMAGES);
+  return CONFERENCE_GALLERY_IMAGES;
+};
 
 export const getPublicationsContent = () => loadFromStorage("publications", initialPublications);
 export const savePublicationsContent = (d: Publication[]) => saveToStorage("publications", d);
@@ -678,6 +750,65 @@ export const INITIAL_TRANSACTIONS: TransactionItem[] = [];
 export const getTransactionsContent = () => loadFromStorage("transactions", INITIAL_TRANSACTIONS);
 export const saveTransactionsContent = (d: TransactionItem[]) => saveToStorage("transactions", d);
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
+
+export async function syncTransactionsFromBackend(): Promise<TransactionItem[]> {
+  try {
+    let token = await getValidAccessToken();
+    if (!token) {
+      return getTransactionsContent();
+    }
+
+    let res = await fetch(`${API_BASE_URL}/donations/admin/transactions/?page_size=100`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        token = refreshedToken;
+        res = await fetch(`${API_BASE_URL}/donations/admin/transactions/?page_size=100`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    }
+
+    if (!res.ok) {
+      return getTransactionsContent();
+    }
+
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.results || []);
+    const mapped: TransactionItem[] = list.map((item: any) => ({
+      id: String(item.id),
+      reference: item.provider_reference || item.reference || String(item.id),
+      project: item.project_name || item.project || "General Ministry Offering",
+      amount: String(item.amount || "0"),
+      currency: item.currency || "NGN",
+      donor_name: item.donor_name || (item.is_anonymous ? "Anonymous Donor" : "Ministry Partner"),
+      donor_email: item.donor_email || "",
+      donor_phone: item.donor_phone || "",
+      provider: (item.provider === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "PAYPAL",
+      status: (item.status === "SUCCESSFUL" ? "SUCCESSFUL" : item.status === "FAILED" ? "FAILED" : "PENDING") as "SUCCESSFUL" | "PENDING" | "FAILED",
+      created_at: item.created_at || new Date().toISOString(),
+      completed_at: item.completed_at || undefined,
+      email_sent: Boolean(item.appreciation_email_sent),
+    }));
+
+    saveTransactionsContent(mapped);
+    return mapped;
+  } catch (err) {
+    console.error("Failed to sync transactions from backend:", err);
+    return getTransactionsContent();
+  }
+}
+
 export const recordTransaction = (tx: TransactionItem) => {
   const current = getTransactionsContent();
   const updated = [tx, ...current.filter((t) => t.id !== tx.id && t.reference !== tx.reference)];
@@ -833,4 +964,10 @@ export const useBlogContent = () => useCmsDomain("blog", getBlogContent);
 export const useBroadcastsContent = () => useCmsDomain("broadcasts", getBroadcastsContent);
 export const useContactContent = () => useCmsDomain("contact", getContactContent);
 export const useDirectoryContent = () => useCmsDomain("directory", getDirectoryContent);
-export const useTransactionsContent = () => useCmsDomain("transactions", getTransactionsContent);
+export const useTransactionsContent = () => {
+  const data = useCmsDomain("transactions", getTransactionsContent);
+  useEffect(() => {
+    syncTransactionsFromBackend().catch(() => {});
+  }, []);
+  return data;
+};

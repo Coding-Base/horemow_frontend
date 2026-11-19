@@ -32,6 +32,7 @@ export default function AdminLoginPage() {
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [authCode, setAuthCode] = useState("");
   const [role, setRole] = useState("SUPERADMIN");
 
   const changeMode = (registering: boolean) => {
@@ -69,6 +70,10 @@ export default function AdminLoginPage() {
       setError("Use a password with at least 8 characters.");
       return;
     }
+    if (!authCode.trim()) {
+      setError("SuperAdmin authentication code is required.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -78,6 +83,7 @@ export default function AdminLoginPage() {
         first_name: firstName,
         last_name: lastName,
         role,
+        auth_code: authCode,
       });
       setSuccessMsg("Administrator account created. Redirecting to the dashboard…");
       window.setTimeout(() => navigate("/admin/dashboard"), 900);
@@ -331,6 +337,18 @@ export default function AdminLoginPage() {
                           value={regConfirmPassword}
                         />
                       </div>
+                      <TextField
+                        autoComplete="off"
+                        fullWidth
+                        helperText="Authorization passcode configured in server .env"
+                        label="SuperAdmin Authentication Code"
+                        onChange={(event) => setAuthCode(event.target.value)}
+                        placeholder="Enter authorization passcode from .env"
+                        required
+                        size="small"
+                        type="password"
+                        value={authCode}
+                      />
                       <Button
                         className="mt-1 min-h-12 font-bold tracking-wide"
                         disabled={loading}

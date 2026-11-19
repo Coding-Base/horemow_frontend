@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   ArrowUpRight,
   BarChart3,
@@ -13,6 +14,7 @@ import {
 import { Link } from "react-router-dom";
 import {
   getAnalyticsData,
+  syncTransactionsFromBackend,
   useDirectoryContent,
   useSermonsContent,
   useTransactionsContent,
@@ -25,6 +27,10 @@ export default function AdminDashboardPage() {
   const transactions = useTransactionsContent();
   const directory = useDirectoryContent();
   const sermons = useSermonsContent();
+
+  useEffect(() => {
+    syncTransactionsFromBackend().catch(() => {});
+  }, []);
 
   const totalOfferingsNGN = transactions
     .filter((transaction) => transaction.status === "SUCCESSFUL" && transaction.currency === "NGN")

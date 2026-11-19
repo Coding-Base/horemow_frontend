@@ -1,7 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import App from "./App";
+import {
+  getGalleryContent,
+  getHomepageContent,
+  resetGalleryContent,
+  resetHomepageContent,
+} from "./lib/contentStore";
 
 describe("public HOREMOW shell", () => {
   afterEach(() => {
@@ -209,11 +215,43 @@ describe("public HOREMOW shell", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.getByRole("heading", { name: /homepage content manager/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText(/pastor name/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /save all sections/i })).toBeInTheDocument();
+    expect(screen.getByText(/homepage content manager/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Pastor Name").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Save All Sections").length).toBeGreaterThan(0);
+    expect(screen.getByText(/5\. Homepage Cards/i)).toBeInTheDocument();
+    expect(screen.getByText("Ministry impact statistics")).toBeInTheDocument();
+    expect(screen.getByText("3D photo gallery")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Add statistic"));
+    fireEvent.click(screen.getByText("Add gallery card"));
+
+    const newStat = screen.getAllByTestId("homepage-stat-editor-card")[4];
+    fireEvent.change(within(newStat).getByLabelText("Statistic value"), {
+      target: { value: "125+" },
+    });
+    fireEvent.change(within(newStat).getByLabelText("Card title"), {
+      target: { value: "New ministry milestone" },
+    });
+    fireEvent.change(within(newStat).getByLabelText("Supporting text"), {
+      target: { value: "Serving communities in new regions" },
+    });
+
+    const newGalleryCard = screen.getAllByTestId("homepage-gallery-editor-card")[28];
+    fireEvent.change(within(newGalleryCard).getByLabelText("Card title"), {
+      target: { value: "Regional revival gathering" },
+    });
+    fireEvent.change(within(newGalleryCard).getByLabelText("Image URL"), {
+      target: { value: "https://example.com/revival.jpg" },
+    });
+
+    const form = document.querySelector("form");
+    if (!form) throw new Error("Homepage content form was not rendered.");
+    fireEvent.submit(form);
+
+    expect(getHomepageContent().stats.at(-1)?.label).toBe("New ministry milestone");
+    expect(getGalleryContent().at(-1)?.title).toBe("Regional revival gathering");
+    resetHomepageContent();
+    resetGalleryContent();
   });
 
   it("renders the admin gallery management tool to add new images and manage gallery", () => {

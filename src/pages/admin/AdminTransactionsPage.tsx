@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -13,6 +13,7 @@ import {
   Filter,
   MailCheck,
   Receipt,
+  RefreshCw,
   Search,
   ShieldCheck,
   XCircle,
@@ -20,6 +21,7 @@ import {
 import Eyebrow from "../../components/common/Eyebrow";
 import SectionHeading from "../../components/common/SectionHeading";
 import {
+  syncTransactionsFromBackend,
   useTransactionsContent,
   type TransactionItem,
 } from "../../lib/contentStore";
@@ -28,12 +30,27 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:800
 
 export default function AdminTransactionsPage() {
   const transactions = useTransactionsContent();
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [providerFilter, setProviderFilter] = useState<string>("ALL");
   const [selectedTx, setSelectedTx] = useState<TransactionItem | null>(null);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    setIsSyncing(true);
+    syncTransactionsFromBackend().finally(() => setIsSyncing(false));
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncTransactionsFromBackend();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Filter logic
   const filtered = transactions.filter((tx) => {
@@ -103,6 +120,15 @@ export default function AdminTransactionsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            disabled={isSyncing}
+            onClick={handleManualSync}
+            size="small"
+            startIcon={<RefreshCw className={isSyncing ? "animate-spin" : ""} size={14} />}
+            variant="outlined"
+          >
+            {isSyncing ? "Syncing..." : "Refresh Ledger"}
+          </Button>
           <Button
             onClick={handleExportCSV}
             size="small"
@@ -232,11 +258,15 @@ export default function AdminTransactionsPage() {
                   <td className="py-12 text-center" colSpan={8}>
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <div className="grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
-                        <Receipt size={24} />
+                        {isSyncing ? <RefreshCw className="animate-spin text-brand-blue" size={24} /> : <Receipt size={24} />}
                       </div>
-                      <h4 className="font-bold text-sm text-slate-700">No Transactions in Ledger</h4>
+                      <h4 className="font-bold text-sm text-slate-700">
+                        {isSyncing ? "Synchronizing Giving Ledger..." : "No Transactions in Ledger"}
+                      </h4>
                       <p className="max-w-md text-xs text-slate-500">
-                        Verified online giving transactions via Paystack and PayPal will automatically register here with transaction reference numbers, donor receipts, and financial audit logs.
+                        {isSyncing
+                          ? "Connecting to the financial gateway and retrieving audited transaction logs."
+                          : "Verified online giving transactions via Paystack and PayPal will automatically register here with transaction reference numbers, donor receipts, and financial audit logs."}
                       </p>
                     </div>
                   </td>
