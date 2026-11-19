@@ -340,7 +340,7 @@ export default function AdminLoginPage() {
                       <TextField
                         autoComplete="off"
                         fullWidth
-                        helperText="Authorization passcode configured in server .env"
+                        helperText=""
                         label="SuperAdmin Authentication Code"
                         onChange={(event) => setAuthCode(event.target.value)}
                         placeholder="Enter authorization passcode from .env"
