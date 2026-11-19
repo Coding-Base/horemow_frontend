@@ -19,6 +19,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminModulePage from "./pages/admin/AdminModulePage";
+import AnalyticsTracker from "./components/common/AnalyticsTracker";
 
 const pageTitles: Record<string, string> = {
   "/": "HOREMOW | Promoting Truth, Holiness and Righteousness",
@@ -57,6 +58,7 @@ export default function App() {
   return (
     <>
       <RouteMetadata />
+      <AnalyticsTracker />
       <Routes>
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<AdminLayout />}>

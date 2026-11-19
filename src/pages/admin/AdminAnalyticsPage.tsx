@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   BarChart3,
   Clock,
@@ -10,14 +10,41 @@ import {
   Users,
   Activity,
   ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import Eyebrow from "../../components/common/Eyebrow";
 import SectionHeading from "../../components/common/SectionHeading";
+import { fetchAnalyticsOverview } from "../../lib/analytics";
+import type { AnalyticsData } from "../../lib/contentStore";
 import { getAnalyticsData } from "../../lib/contentStore";
 
 export default function AdminAnalyticsPage() {
-  const [data] = useState(getAnalyticsData);
+  const [data, setData] = useState<AnalyticsData>(getAnalyticsData);
   const [timeRange, setTimeRange] = useState<"7D" | "30D" | "90D">("7D");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const loadData = useCallback(async (range: "7D" | "30D" | "90D", isManual = false) => {
+    if (isManual) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const result = await fetchAnalyticsOverview(range);
+      setData(result);
+    } catch {
+      setData(getAnalyticsData());
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData(timeRange);
+  }, [timeRange, loadData]);
 
   const dailyList = data.dailyVisits || [];
   const maxVisits = dailyList.length > 0 ? Math.max(...dailyList.map((d) => d.visits), 1) : 1;
@@ -34,21 +61,34 @@ export default function AdminAnalyticsPage() {
             title="Site Visitation & Analytics"
           />
         </div>
-        <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1">
-          {(["7D", "30D", "90D"] as const).map((range) => (
-            <button
-              className={`rounded-md px-3 py-1 text-xs font-bold transition ${
-                timeRange === range
-                  ? "bg-brand-blue text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-              key={range}
-              onClick={() => setTimeRange(range)}
-              type="button"
-            >
-              {range === "7D" ? "Last 7 Days" : range === "30D" ? "Last 30 Days" : "Last Quarter"}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadData(timeRange, true)}
+            title="Refresh metrics"
+            disabled={isRefreshing || isLoading}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-brand-blue hover:border-brand-blue/30 transition disabled:opacity-50"
+            type="button"
+          >
+            <RefreshCw size={13} className={isRefreshing ? "animate-spin text-brand-blue" : ""} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+          </button>
+
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1">
+            {(["7D", "30D", "90D"] as const).map((range) => (
+              <button
+                className={`rounded-md px-3 py-1 text-xs font-bold transition ${
+                  timeRange === range
+                    ? "bg-brand-blue text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                key={range}
+                onClick={() => setTimeRange(range)}
+                type="button"
+              >
+                {range === "7D" ? "Last 7 Days" : range === "30D" ? "Last 30 Days" : "Last Quarter"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
