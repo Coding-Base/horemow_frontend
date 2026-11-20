@@ -10,11 +10,13 @@ import {
   ArrowRight,
   CheckCircle2,
   Cross,
+  Eye,
+  EyeOff,
   KeyRound,
   LockKeyhole,
   UserPlus,
 } from "lucide-react";
-import { Alert, Button, MenuItem, TextField } from "@mui/material";
+import { Alert, Button, IconButton, InputAdornment, MenuItem, TextField } from "@mui/material";
 import Logo from "../../components/layout/Logo";
 import { loginAdmin, registerAdmin } from "../../lib/auth";
 
@@ -29,12 +31,18 @@ export default function AdminLoginPage() {
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+
   const [authCode, setAuthCode] = useState("");
+  const [showAuthCode, setShowAuthCode] = useState(false);
   const [role, setRole] = useState("SUPERADMIN");
 
   const changeMode = (registering: boolean) => {
@@ -262,8 +270,22 @@ export default function AdminLoginPage() {
                         onChange={(event) => setLoginPassword(event.target.value)}
                         required
                         size="medium"
-                        type="password"
+                        type={showLoginPassword ? "text" : "password"}
                         value={loginPassword}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                                edge="end"
+                                onClick={() => setShowLoginPassword((prev) => !prev)}
+                                size="small"
+                              >
+                                {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
                       />
                       <Button
                         className="mt-1 min-h-12 font-bold tracking-wide"
@@ -330,8 +352,22 @@ export default function AdminLoginPage() {
                           onChange={(event) => setRegPassword(event.target.value)}
                           required
                           size="small"
-                          type="password"
+                          type={showRegPassword ? "text" : "password"}
                           value={regPassword}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label={showRegPassword ? "Hide password" : "Show password"}
+                                  edge="end"
+                                  onClick={() => setShowRegPassword((prev) => !prev)}
+                                  size="small"
+                                >
+                                  {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
                         />
                         <TextField
                           autoComplete="new-password"
@@ -340,8 +376,22 @@ export default function AdminLoginPage() {
                           onChange={(event) => setRegConfirmPassword(event.target.value)}
                           required
                           size="small"
-                          type="password"
+                          type={showRegConfirmPassword ? "text" : "password"}
                           value={regConfirmPassword}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label={showRegConfirmPassword ? "Hide password" : "Show password"}
+                                  edge="end"
+                                  onClick={() => setShowRegConfirmPassword((prev) => !prev)}
+                                  size="small"
+                                >
+                                  {showRegConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
                         />
                       </div>
                       <TextField
@@ -353,8 +403,22 @@ export default function AdminLoginPage() {
                         placeholder="Enter authorization passcode from .env"
                         required
                         size="small"
-                        type="password"
+                        type={showAuthCode ? "text" : "password"}
                         value={authCode}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label={showAuthCode ? "Hide authentication code" : "Show authentication code"}
+                                edge="end"
+                                onClick={() => setShowAuthCode((prev) => !prev)}
+                                size="small"
+                              >
+                                {showAuthCode ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
                       />
                       <Button
                         className="mt-1 min-h-12 font-bold tracking-wide"

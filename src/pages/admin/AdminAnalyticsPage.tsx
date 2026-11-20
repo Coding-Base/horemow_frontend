@@ -52,16 +52,16 @@ export default function AdminAnalyticsPage() {
   const hasVisits = data.totalPageviews > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <Eyebrow>Real-Time Traffic & Engagement</Eyebrow>
           <SectionHeading
             description="Track global visitor metrics, geographic reach, audience devices, and resource engagement in real-time."
             title="Site Visitation & Analytics"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
           <button
             onClick={() => loadData(timeRange, true)}
             title="Refresh metrics"
@@ -73,10 +73,10 @@ export default function AdminAnalyticsPage() {
             <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </button>
 
-          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1">
+          <div className="flex max-w-full items-center overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
             {(["7D", "30D", "90D"] as const).map((range) => (
               <button
-                className={`rounded-md px-3 py-1 text-xs font-bold transition ${
+                className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold transition sm:px-3 ${
                   timeRange === range
                     ? "bg-brand-blue text-white shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
@@ -160,7 +160,7 @@ export default function AdminAnalyticsPage() {
       ) : (
         <>
           {/* Main Chart Card */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-sm font-bold text-ink">Daily Visitation Volume</h3>
@@ -177,11 +177,12 @@ export default function AdminAnalyticsPage() {
             </div>
 
             {/* Simulated Chart Bars */}
-            <div className="mt-6 flex h-48 items-end gap-3 sm:gap-6 pt-4">
-              {dailyList.map((day, idx) => {
-                const heightPct = Math.max(15, Math.round((day.visits / maxVisits) * 100));
-                return (
-                  <div className="flex flex-1 flex-col items-center gap-2 h-full justify-end" key={idx}>
+            <div className="overflow-x-auto pb-2">
+              <div className="mt-6 flex h-48 min-w-[340px] items-end gap-2 pt-4 sm:min-w-0 sm:gap-6">
+                {dailyList.map((day, idx) => {
+                  const heightPct = Math.max(15, Math.round((day.visits / maxVisits) * 100));
+                  return (
+                    <div className="flex flex-1 min-w-[38px] flex-col items-center gap-2 h-full justify-end" key={idx}>
                     <div className="relative group w-full flex items-end justify-center h-full">
                       <div
                         className="w-full max-w-[32px] rounded-t-md bg-gradient-to-t from-brand-blue to-soft-blue/80 transition-all hover:brightness-110"
@@ -195,6 +196,7 @@ export default function AdminAnalyticsPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
 

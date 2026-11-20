@@ -10,12 +10,14 @@ import {
 import {
   CheckCircle2,
   Edit2,
+  Loader2,
   Mail,
   MapPin,
   Phone,
   Plus,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import Eyebrow from "../common/Eyebrow";
 import SectionHeading from "../common/SectionHeading";
@@ -24,6 +26,7 @@ import {
   useDirectoryContent,
   type OverseerItem,
 } from "../../lib/contentStore";
+import { fileToDataUrl } from "../../lib/imageUpload";
 
 export default function AdminDirectoryManager() {
   const directory = useDirectoryContent();
@@ -44,6 +47,24 @@ export default function AdminDirectoryManager() {
   const [officeAddress, setOfficeAddress] = useState("");
   const [portraitUrl, setPortraitUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [isUploadingPortrait, setIsUploadingPortrait] = useState(false);
+
+  const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingPortrait(true);
+      const url = await fileToDataUrl(file, "horemow_directory");
+      setPortraitUrl(url);
+      setNotice("Portrait photo uploaded to Cloudinary successfully!");
+      setTimeout(() => setNotice(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload image";
+      setNotice(msg);
+    } finally {
+      setIsUploadingPortrait(false);
+    }
+  };
 
   const filtered = directory.filter((item) => {
     const matchesSearch =
@@ -384,15 +405,48 @@ export default function AdminDirectoryManager() {
               value={officeAddress}
             />
 
-            <TextField
-              fullWidth
-              helperText="Paste direct Cloudinary URL or image link"
-              label="Portrait Image URL"
-              onChange={(e) => setPortraitUrl(e.target.value)}
-              placeholder="https://res.cloudinary.com/..."
-              size="small"
-              value={portraitUrl}
-            />
+            {/* Leader Portrait Photograph Upload */}
+            <div className="rounded-lg border border-dashed border-slate-300 p-3.5 bg-slate-50/50">
+              <span className="text-xs font-bold text-ink mb-1.5 block">
+                Leader Portrait Photograph
+              </span>
+              <div className="grid gap-3 sm:grid-cols-12 items-center">
+                <div className="sm:col-span-8">
+                  <TextField
+                    fullWidth
+                    label="Portrait Image URL or Cloudinary Link"
+                    onChange={(e) => setPortraitUrl(e.target.value)}
+                    placeholder="https://res.cloudinary.com/..."
+                    size="small"
+                    value={portraitUrl}
+                  />
+                </div>
+                <div className="sm:col-span-4 flex items-center gap-2">
+                  <label className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm ${isUploadingPortrait ? "opacity-60 cursor-not-allowed" : ""}`}>
+                    {isUploadingPortrait ? (
+                      <Loader2 size={14} className="animate-spin text-brand-blue" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    <span>{isUploadingPortrait ? "Uploading..." : "Upload Photo"}</span>
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingPortrait}
+                      onChange={handlePortraitUpload}
+                      type="file"
+                    />
+                  </label>
+                  {portraitUrl && (
+                    <img
+                      alt="Leader portrait preview"
+                      className="size-10 rounded-full object-cover border border-slate-200 shrink-0"
+                      src={portraitUrl}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
 
             <TextField
               fullWidth

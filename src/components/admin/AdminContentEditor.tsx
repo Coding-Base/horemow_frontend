@@ -1,4 +1,4 @@
-import { Check, RefreshCw, Save, ShieldCheck } from "lucide-react";
+import { Check, Loader2, RefreshCw, Save, ShieldCheck, Upload } from "lucide-react";
 import { Alert, Button, TextField } from "@mui/material";
 import { useState } from "react";
 import {
@@ -10,16 +10,51 @@ import {
   saveHomepageContent,
   type HomepageContent,
 } from "../../lib/contentStore";
+import { fileToDataUrl } from "../../lib/imageUpload";
 import HomeCardsEditor from "./HomeCardsEditor";
 import type { ConferenceImage } from "../../data/mediaAssets";
 
 export default function AdminContentEditor() {
   const [formData, setFormData] = useState<HomepageContent>(getHomepageContent);
   const [galleryCards, setGalleryCards] = useState<ConferenceImage[]>(getGalleryContent);
+  const [isUploadingPastor, setIsUploadingPastor] = useState(false);
+  const [isUploadingMummy, setIsUploadingMummy] = useState(false);
   const [savedStatus, setSavedStatus] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const handlePastorImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingPastor(true);
+      const url = await fileToDataUrl(file, "horemow_leadership");
+      handleLeadershipChange("pastorImage", url);
+      setSavedStatus({ type: "success", text: "Pastor Paul Rika's photo uploaded to Cloudinary successfully!" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload image";
+      setSavedStatus({ type: "error", text: msg });
+    } finally {
+      setIsUploadingPastor(false);
+    }
+  };
+
+  const handleMummyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingMummy(true);
+      const url = await fileToDataUrl(file, "horemow_leadership");
+      handleLeadershipChange("mummyImage", url);
+      setSavedStatus({ type: "success", text: "Evangelist Linda Paul Rika's photo uploaded to Cloudinary successfully!" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload image";
+      setSavedStatus({ type: "error", text: msg });
+    } finally {
+      setIsUploadingMummy(false);
+    }
+  };
 
   const handleHeroChange = (field: keyof HomepageContent["hero"], value: string) => {
     setFormData((prev) => ({
@@ -270,13 +305,49 @@ export default function AdminContentEditor() {
               size="small"
               value={formData.leadership.pastorRole}
             />
-            <TextField
-              fullWidth
-              label="Pastor Image Cloudinary URL"
-              onChange={(e) => handleLeadershipChange("pastorImage", e.target.value)}
-              size="small"
-              value={formData.leadership.pastorImage}
-            />
+
+            {/* Pastor Paul Rika Image Upload */}
+            <div className="sm:col-span-2 rounded-lg border border-dashed border-slate-300 p-3.5 bg-slate-50/50">
+              <span className="text-xs font-bold text-ink mb-1.5 block">
+                Pastor Paul Rika Portrait Photograph
+              </span>
+              <div className="grid gap-3 sm:grid-cols-12 items-center">
+                <div className="sm:col-span-8">
+                  <TextField
+                    fullWidth
+                    label="Pastor Image Cloudinary URL"
+                    onChange={(e) => handleLeadershipChange("pastorImage", e.target.value)}
+                    placeholder="https://res.cloudinary.com/..."
+                    size="small"
+                    value={formData.leadership.pastorImage}
+                  />
+                </div>
+                <div className="sm:col-span-4 flex items-center gap-2">
+                  <label className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm ${isUploadingPastor ? "opacity-60 cursor-not-allowed" : ""}`}>
+                    {isUploadingPastor ? (
+                      <Loader2 size={14} className="animate-spin text-brand-blue" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    <span>{isUploadingPastor ? "Uploading..." : "Upload Photo"}</span>
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingPastor}
+                      onChange={handlePastorImageUpload}
+                      type="file"
+                    />
+                  </label>
+                  {formData.leadership.pastorImage && (
+                    <img
+                      alt="Pastor Paul Rika"
+                      className="size-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                      src={formData.leadership.pastorImage}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
             <div className="sm:col-span-2">
               <TextField
                 fullWidth
@@ -315,14 +386,47 @@ export default function AdminContentEditor() {
               size="small"
               value={formData.leadership.mummyRole}
             />
-            <div className="sm:col-span-2">
-              <TextField
-                fullWidth
-                label="Mummy Linda Image Cloudinary URL"
-                onChange={(e) => handleLeadershipChange("mummyImage", e.target.value)}
-                size="small"
-                value={formData.leadership.mummyImage}
-              />
+            {/* Mummy Linda Paul Rika Image Upload */}
+            <div className="sm:col-span-2 rounded-lg border border-dashed border-slate-300 p-3.5 bg-slate-50/50">
+              <span className="text-xs font-bold text-ink mb-1.5 block">
+                Evangelist Linda Paul Rika Portrait Photograph
+              </span>
+              <div className="grid gap-3 sm:grid-cols-12 items-center">
+                <div className="sm:col-span-8">
+                  <TextField
+                    fullWidth
+                    label="Mummy Linda Image Cloudinary URL"
+                    onChange={(e) => handleLeadershipChange("mummyImage", e.target.value)}
+                    placeholder="https://res.cloudinary.com/..."
+                    size="small"
+                    value={formData.leadership.mummyImage}
+                  />
+                </div>
+                <div className="sm:col-span-4 flex items-center gap-2">
+                  <label className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm ${isUploadingMummy ? "opacity-60 cursor-not-allowed" : ""}`}>
+                    {isUploadingMummy ? (
+                      <Loader2 size={14} className="animate-spin text-brand-blue" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    <span>{isUploadingMummy ? "Uploading..." : "Upload Photo"}</span>
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingMummy}
+                      onChange={handleMummyImageUpload}
+                      type="file"
+                    />
+                  </label>
+                  {formData.leadership.mummyImage && (
+                    <img
+                      alt="Evangelist Linda Paul Rika"
+                      className="size-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                      src={formData.leadership.mummyImage}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
             <div className="sm:col-span-2">
               <TextField

@@ -19,6 +19,7 @@ import HomeStatsSection from "../components/home/HomeStatsSection";
 import DailyDevotionalSpotlight from "../components/home/DailyDevotionalSpotlight";
 import EventsSpotlightSection from "../components/home/EventsSpotlightSection";
 import BlogSpotlightSection from "../components/home/BlogSpotlightSection";
+import HomepageAnnouncementModal from "../components/home/HomepageAnnouncementModal";
 import { useHomepageContent, useSermonsContent } from "../lib/contentStore";
 
 export default function HomePage() {
@@ -246,6 +247,7 @@ export default function HomePage() {
         </div>
       </section>
       </div>
+      <HomepageAnnouncementModal />
     </div>
   );
 }

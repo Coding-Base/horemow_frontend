@@ -46,3 +46,44 @@ export async function apiGet<T>(
 }
 
 export const isApiConfigured = Boolean(API_BASE_URL);
+
+export async function fetchMinistryProfileApi(): Promise<any> {
+  const url = API_BASE_URL ? `${API_BASE_URL}/ministry/profile/` : "http://localhost:8000/api/v1/ministry/profile/";
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || json;
+  } catch (err) {
+    console.warn("fetchMinistryProfileApi error:", err);
+    return null;
+  }
+}
+
+export async function updateMinistryProfileApi(payload: any): Promise<any> {
+  const url = API_BASE_URL ? `${API_BASE_URL}/ministry/profile/` : "http://localhost:8000/api/v1/ministry/profile/";
+  const rawTokens = localStorage.getItem("horemow_auth_tokens");
+  let access = "";
+  if (rawTokens) {
+    try {
+      access = JSON.parse(rawTokens)?.access || "";
+    } catch {
+      // ignore
+    }
+  }
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (access) headers["Authorization"] = `Bearer ${access}`;
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.detail || `Failed to save settings (${res.status})`);
+  }
+  return await res.json();
+}

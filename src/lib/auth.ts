@@ -129,8 +129,6 @@ export function hasPermission(user: AuthUser | null, permissionKey: string): boo
   return Boolean(user.capabilities?.includes(permissionKey));
 }
 
-const STORAGE_KEY_SUBADMINS = "horemow_subadmins_list";
-
 export const DEFAULT_SUBADMINS: AuthUser[] = [
   {
     id: "usr-super",
@@ -164,17 +162,116 @@ export const DEFAULT_SUBADMINS: AuthUser[] = [
   },
 ];
 
+let memorySubadmins = DEFAULT_SUBADMINS;
+
 export function getSubAdmins(): AuthUser[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_SUBADMINS);
-    return raw ? (JSON.parse(raw) as AuthUser[]) : DEFAULT_SUBADMINS;
-  } catch {
-    return DEFAULT_SUBADMINS;
-  }
+  return memorySubadmins;
 }
 
 export function saveSubAdmins(list: AuthUser[]) {
-  localStorage.setItem(STORAGE_KEY_SUBADMINS, JSON.stringify(list));
+  memorySubadmins = list;
+  window.dispatchEvent(new CustomEvent("horemow_subadmins_changed"));
+}
+
+export async function fetchSubAdminsApi(): Promise<AuthUser[]> {
+  try {
+    const token = await getValidAccessToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/auth/users/`, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.results || data.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        memorySubadmins = list;
+        window.dispatchEvent(new CustomEvent("horemow_subadmins_changed"));
+        return list;
+      }
+    }
+  } catch (err) {
+    console.warn("fetchSubAdminsApi error:", err);
+  }
+  return memorySubadmins;
+}
+
+export async function createSubAdminApi(payload: {
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  capabilities: string[];
+  is_active: boolean;
+  password?: string;
+}): Promise<AuthUser> {
+  const token = await getValidAccessToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE_URL}/auth/users/`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const errorMsg =
+      data?.error?.message ||
+      data?.detail ||
+      data?.email?.[0] ||
+      data?.password?.[0] ||
+      `Failed to create user (${res.status})`;
+    throw new Error(errorMsg);
+  }
+
+  const createdUser: AuthUser = data.data || data;
+  memorySubadmins = [createdUser, ...memorySubadmins.filter((a) => a.id !== createdUser.id)];
+  window.dispatchEvent(new CustomEvent("horemow_subadmins_changed"));
+  return createdUser;
+}
+
+export async function updateSubAdminApi(
+  id: string,
+  payload: Partial<AuthUser> & { password?: string }
+): Promise<AuthUser> {
+  const token = await getValidAccessToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE_URL}/auth/users/${id}/`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const errorMsg = data?.error?.message || data?.detail || `Failed to update user (${res.status})`;
+    throw new Error(errorMsg);
+  }
+
+  const updatedUser: AuthUser = data.data || data;
+  memorySubadmins = memorySubadmins.map((a) => (a.id === id ? { ...a, ...updatedUser } : a));
+  window.dispatchEvent(new CustomEvent("horemow_subadmins_changed"));
+  return updatedUser;
+}
+
+export async function deleteSubAdminApi(id: string): Promise<void> {
+  const token = await getValidAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE_URL}/auth/users/${id}/`, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`Failed to delete user (${res.status})`);
+  }
+
+  memorySubadmins = memorySubadmins.filter((a) => a.id !== id);
   window.dispatchEvent(new CustomEvent("horemow_subadmins_changed"));
 }
 

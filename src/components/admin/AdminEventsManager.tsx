@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   CalendarDays,
   Plus,
@@ -12,10 +12,12 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Megaphone,
 } from "lucide-react";
 import {
   Alert,
   Button,
+  FormControlLabel,
   MenuItem,
   Select,
   TextField,
@@ -25,20 +27,30 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Switch,
 } from "@mui/material";
 import {
   getEventsContent,
   saveEventsContent,
   useEventsContent,
+  getHomepageAnnouncement,
+  saveHomepageAnnouncement,
   type MinistryEvent,
+  type HomepageAnnouncement,
 } from "../../lib/contentStore";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import {
+  fetchHomepageAnnouncement,
+  isHomepageAnnouncementApiConfigured,
+  saveHomepageAnnouncementToApi,
+} from "../../lib/homepageAnnouncementApi";
 
 const ITEMS_PER_PAGE = 5;
 
 export default function AdminEventsManager() {
   const events = useEventsContent();
+  const [homepageAnnouncement, setHomepageAnnouncement] = useState<HomepageAnnouncement>(getHomepageAnnouncement);
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Search & Filter
@@ -50,6 +62,38 @@ export default function AdminEventsManager() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [isAnnouncementEditorOpen, setIsAnnouncementEditorOpen] = useState(false);
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+
+  // Homepage announcement fields
+  const [announcementEnabled, setAnnouncementEnabled] = useState(false);
+  const [announcementEyebrow, setAnnouncementEyebrow] = useState("");
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [announcementImageUrl, setAnnouncementImageUrl] = useState("");
+  const [announcementActionLabel, setAnnouncementActionLabel] = useState("");
+  const [announcementActionUrl, setAnnouncementActionUrl] = useState("");
+
+  useEffect(() => {
+    if (!isHomepageAnnouncementApiConfigured) return;
+
+    let active = true;
+    void fetchHomepageAnnouncement()
+      .then((announcement) => {
+        if (active && announcement) {
+          setHomepageAnnouncement(announcement);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          const message = error instanceof Error ? error.message : "Could not load homepage announcement settings.";
+          setStatus({ type: "error", text: message });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Form Fields
   const [title, setTitle] = useState("");
@@ -121,6 +165,90 @@ export default function AdminEventsManager() {
         const msg = err instanceof Error ? err.message : "Image load failed";
         setStatus({ type: "error", text: msg });
       }
+    }
+  };
+
+  const openAnnouncementEditor = async () => {
+    try {
+      const current = isHomepageAnnouncementApiConfigured
+        ? (await fetchHomepageAnnouncement()) ?? homepageAnnouncement
+        : homepageAnnouncement;
+      setAnnouncementEnabled(current.enabled);
+      setAnnouncementEyebrow(current.eyebrow);
+      setAnnouncementTitle(current.title);
+      setAnnouncementMessage(current.message);
+      setAnnouncementImageUrl(current.imageUrl);
+      setAnnouncementActionLabel(current.actionLabel);
+      setAnnouncementActionUrl(current.actionUrl);
+      setIsAnnouncementEditorOpen(true);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not load homepage announcement settings.";
+      setStatus({ type: "error", text: message });
+    }
+  };
+
+  const handleAnnouncementImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setAnnouncementImageUrl(await fileToDataUrl(file));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Image load failed";
+      setStatus({ type: "error", text: message });
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (announcementEnabled && (!announcementTitle.trim() || !announcementMessage.trim())) {
+      setStatus({ type: "error", text: "Add an update headline and message before showing it on the homepage." });
+      return;
+    }
+
+    const actionUrl = announcementActionUrl.trim();
+    if (actionUrl && !actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
+      try {
+        const parsed = new URL(actionUrl);
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          throw new Error("Unsupported link protocol");
+        }
+      } catch {
+        setStatus({ type: "error", text: "Use a site path or a valid http(s) link for the action button." });
+        return;
+      }
+    }
+
+    const announcement = {
+      enabled: announcementEnabled,
+      eyebrow: announcementEyebrow.trim() || "Latest update",
+      title: announcementTitle.trim(),
+      message: announcementMessage.trim(),
+      imageUrl: announcementImageUrl.trim(),
+      actionLabel: announcementActionLabel.trim(),
+      actionUrl,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIsSavingAnnouncement(true);
+    try {
+      let saved = announcement;
+      if (isHomepageAnnouncementApiConfigured) {
+        saved = await saveHomepageAnnouncementToApi(announcement);
+      } else {
+        saveHomepageAnnouncement(announcement);
+      }
+      setHomepageAnnouncement(saved);
+      setIsAnnouncementEditorOpen(false);
+      setStatus({ type: "success", text: "Homepage announcement settings saved." });
+      setTimeout(() => setStatus(null), 4000);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not save homepage announcement.";
+      setStatus({ type: "error", text: message });
+    } finally {
+      setIsSavingAnnouncement(false);
     }
   };
 
@@ -226,6 +354,38 @@ export default function AdminEventsManager() {
           variant="contained"
         >
           Schedule New Event
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-xl border border-[#dbe5f0] bg-gradient-to-r from-[#f7faff] to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand-blue shadow-sm">
+            <Megaphone size={19} />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-bold text-ink">Homepage news update</h3>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  homepageAnnouncement.enabled
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {homepageAnnouncement.enabled ? "LIVE" : "OFF"}
+              </span>
+            </div>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+              Share a timely announcement in a popup when visitors open the homepage.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={openAnnouncementEditor}
+          sx={{ flexShrink: 0, textTransform: "none", fontWeight: 700 }}
+          variant="outlined"
+        >
+          Configure homepage update
         </Button>
       </div>
 
@@ -522,6 +682,7 @@ export default function AdminEventsManager() {
               Cancel
             </Button>
             <Button
+              disabled={isSavingAnnouncement}
               sx={{
                 backgroundColor: "#1A4B8C",
                 color: "#ffffff",
@@ -535,6 +696,131 @@ export default function AdminEventsManager() {
               variant="contained"
             >
               {editingEventId ? "Save Event Changes" : "Publish Event"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        onClose={() => setIsAnnouncementEditorOpen(false)}
+        open={isAnnouncementEditorOpen}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 0.5 }}>Homepage news update</DialogTitle>
+        <form onSubmit={handleSaveAnnouncement}>
+          <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+            <p className="text-xs leading-5 text-slate-500">
+              This announcement appears as a dismissible popup on the homepage. Visitors see it again
+              when you publish a changed update.
+            </p>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={announcementEnabled}
+                  onChange={(e) => setAnnouncementEnabled(e.target.checked)}
+                />
+              }
+              label="Show popup on homepage"
+            />
+            <TextField
+              fullWidth
+              label="Short label"
+              onChange={(e) => setAnnouncementEyebrow(e.target.value)}
+              placeholder="Latest update"
+              size="small"
+              value={announcementEyebrow}
+            />
+            <TextField
+              fullWidth
+              label="Update headline"
+              onChange={(e) => setAnnouncementTitle(e.target.value)}
+              required={announcementEnabled}
+              size="small"
+              value={announcementTitle}
+            />
+            <TextField
+              fullWidth
+              label="Announcement message"
+              multiline
+              onChange={(e) => setAnnouncementMessage(e.target.value)}
+              required={announcementEnabled}
+              rows={4}
+              size="small"
+              value={announcementMessage}
+            />
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-4">
+              <span className="mb-2 block text-xs font-bold text-ink">Optional announcement image</span>
+              <div className="grid items-center gap-3 sm:grid-cols-12">
+                <div className="sm:col-span-8">
+                  <TextField
+                    fullWidth
+                    label="Image URL"
+                    onChange={(e) => setAnnouncementImageUrl(e.target.value)}
+                    placeholder="https://..."
+                    size="small"
+                    value={announcementImageUrl}
+                  />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-4">
+                  <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <Upload size={14} /> Upload image
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAnnouncementImageFileChange}
+                      type="file"
+                    />
+                  </label>
+                  {announcementImageUrl && (
+                    <img
+                      alt="Announcement preview"
+                      className="size-10 rounded border border-slate-200 object-cover"
+                      src={announcementImageUrl}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                fullWidth
+                label="Button label"
+                onChange={(e) => setAnnouncementActionLabel(e.target.value)}
+                placeholder="View all events"
+                size="small"
+                value={announcementActionLabel}
+              />
+              <TextField
+                fullWidth
+                helperText="Use a site path like /events or a full http(s) URL."
+                label="Button link"
+                onChange={(e) => setAnnouncementActionUrl(e.target.value)}
+                placeholder="/events"
+                size="small"
+                value={announcementActionUrl}
+              />
+            </div>
+          </DialogContent>
+          <DialogActions sx={{ p: 2.5 }}>
+            <Button onClick={() => setIsAnnouncementEditorOpen(false)} sx={{ textTransform: "none" }}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isSavingAnnouncement}
+              sx={{
+                backgroundColor: "#1A4B8C",
+                color: "#ffffff",
+                fontWeight: 700,
+                textTransform: "none",
+                borderRadius: "8px",
+                px: 3,
+                "&:hover": { backgroundColor: "#143A6D" },
+              }}
+              type="submit"
+              variant="contained"
+            >
+              Save homepage update
             </Button>
           </DialogActions>
         </form>

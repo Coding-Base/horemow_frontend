@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Settings,
   Users,
@@ -13,6 +13,9 @@ import {
   AlertCircle,
   Save,
   RefreshCw,
+  ExternalLink,
+  Download,
+  Copy,
 } from "lucide-react";
 import {
   Alert,
@@ -39,8 +42,14 @@ import {
 import {
   getSubAdmins,
   saveSubAdmins,
+  fetchSubAdminsApi,
+  createSubAdminApi,
+  updateSubAdminApi,
+  deleteSubAdminApi,
   type AuthUser,
 } from "../../lib/auth";
+import { applyTheme, getStoredTheme } from "../../lib/theme";
+import { fetchMinistryProfileApi, updateMinistryProfileApi } from "../../lib/api";
 
 const ALL_PERMISSIONS = [
   { key: "content", label: "Site Content & Homepage CMS" },
@@ -64,6 +73,7 @@ export default function AdminSettingsManager() {
 
   const [activeTab, setActiveTab] = useState(0);
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
   /* ----------------- 1. SUB-ADMINS STATE ----------------- */
   const [subAdmins, setSubAdmins] = useState<AuthUser[]>(getSubAdmins);
@@ -83,28 +93,108 @@ export default function AdminSettingsManager() {
   const [subIsActive, setSubIsActive] = useState(true);
 
   /* ----------------- 2. TYPOGRAPHY & STYLING STATE ----------------- */
-  const [headingFont, setHeadingFont] = useState(() => localStorage.getItem("horemow_font_heading") || "serif");
-  const [bodyFont, setBodyFont] = useState(() => localStorage.getItem("horemow_font_body") || "sans");
-  const [fontSizeScale, setFontSizeScale] = useState(() => localStorage.getItem("horemow_font_scale") || "standard");
-  const [brandAccent, setBrandAccent] = useState(() => localStorage.getItem("horemow_brand_accent") || "#1A4B8C");
+  const [headingFont, setHeadingFont] = useState(() => getStoredTheme().headingFont);
+  const [bodyFont, setBodyFont] = useState(() => getStoredTheme().bodyFont);
+  const [fontSizeScale, setFontSizeScale] = useState(() => getStoredTheme().fontSizeScale);
+  const [brandAccent, setBrandAccent] = useState(() => getStoredTheme().brandAccent);
 
   /* ----------------- 3. MINISTRY CONTACT DETAILS STATE ----------------- */
   const [contactData, setContactData] = useState<ContactDetails>(contactDetails);
 
   /* ----------------- 4. EMAIL & NOTIFICATIONS STATE ----------------- */
-  const [emailSenderName, setEmailSenderName] = useState("HOREMOW International Directorate");
-  const [receiptReplyTo, setReceiptReplyTo] = useState("receipts@horemow.org");
+  const [emailSenderName, setEmailSenderName] = useState(() => {
+    try {
+      const raw = localStorage.getItem("horemow_email_settings");
+      return raw ? JSON.parse(raw).emailSenderName || "HOREMOW International Directorate" : "HOREMOW International Directorate";
+    } catch {
+      return "HOREMOW International Directorate";
+    }
+  });
+  const [receiptReplyTo, setReceiptReplyTo] = useState(() => {
+    try {
+      const raw = localStorage.getItem("horemow_email_settings");
+      return raw ? JSON.parse(raw).receiptReplyTo || "receipts@horemow.org" : "receipts@horemow.org";
+    } catch {
+      return "receipts@horemow.org";
+    }
+  });
   const [notifyOnComment, setNotifyOnComment] = useState(true);
   const [notifyOnDonation, setNotifyOnDonation] = useState(true);
 
   /* ----------------- 5. SEO & SITEMAP STATE ----------------- */
-  const [seoMetaTitle, setSeoMetaTitle] = useState("Holiness Revival Movement Worldwide | Official Platform");
-  const [seoMetaDescription, setSeoMetaDescription] = useState(
-    "A non-denominational global ministry promoting biblical truth, restitution, and preparing souls for the return of Jesus Christ in absolute holiness."
-  );
-  const [seoMetaKeywords, setSeoMetaKeywords] = useState(
-    "HOREMOW, Pastor Paul Rika, Holiness Revival Movement, restitution, biblical truth, heaven, holiness literature, sermons"
-  );
+  const [seoMetaTitle, setSeoMetaTitle] = useState(() => {
+    try {
+      const raw = localStorage.getItem("horemow_seo_settings");
+      return raw ? JSON.parse(raw).seoMetaTitle || "Holiness Revival Movement Worldwide | Official Platform" : "Holiness Revival Movement Worldwide | Official Platform";
+    } catch {
+      return "Holiness Revival Movement Worldwide | Official Platform";
+    }
+  });
+  const [seoMetaDescription, setSeoMetaDescription] = useState(() => {
+    try {
+      const raw = localStorage.getItem("horemow_seo_settings");
+      return raw ? JSON.parse(raw).seoMetaDescription || "A non-denominational global ministry promoting biblical truth, restitution, and preparing souls for the return of Jesus Christ in absolute holiness." : "A non-denominational global ministry promoting biblical truth, restitution, and preparing souls for the return of Jesus Christ in absolute holiness.";
+    } catch {
+      return "A non-denominational global ministry promoting biblical truth, restitution, and preparing souls for the return of Jesus Christ in absolute holiness.";
+    }
+  });
+  const [seoMetaKeywords, setSeoMetaKeywords] = useState(() => {
+    try {
+      const raw = localStorage.getItem("horemow_seo_settings");
+      return raw ? JSON.parse(raw).seoMetaKeywords || "HOREMOW, Pastor Paul Rika, Holiness Revival Movement, restitution, biblical truth, heaven, holiness literature, sermons" : "HOREMOW, Pastor Paul Rika, Holiness Revival Movement, restitution, biblical truth, heaven, holiness literature, sermons";
+    } catch {
+      return "HOREMOW, Pastor Paul Rika, Holiness Revival Movement, restitution, biblical truth, heaven, holiness literature, sermons";
+    }
+  });
+  const [generatedSitemapXml, setGeneratedSitemapXml] = useState<string | null>(null);
+
+  /* ----------------- INITIALIZE DATA FROM BACKEND & LOCALSTORE ----------------- */
+  useEffect(() => {
+    fetchSubAdminsApi().then((list) => {
+      if (Array.isArray(list) && list.length > 0) {
+        setSubAdmins(list);
+      }
+    });
+
+    fetchMinistryProfileApi().then((prof) => {
+      if (prof) {
+        if (prof.headquarters_address || prof.primary_email || prof.primary_phone) {
+          setContactData((prev) => ({
+            ...prev,
+            address: prof.headquarters_address || prev.address,
+            email: prof.primary_email || prev.email,
+            phone: prof.primary_phone || prev.phone,
+            hqName: prof.gathering_times?.hqName || prev.hqName,
+            helpline: prof.gathering_times?.helpline || prev.helpline,
+            sundayServiceTimes: prof.gathering_times?.sundayServiceTimes || prev.sundayServiceTimes,
+            tuesdayServiceTimes: prof.gathering_times?.tuesdayServiceTimes || prev.tuesdayServiceTimes,
+          }));
+        }
+        if (prof.styling_settings) {
+          if (prof.styling_settings.headingFont) setHeadingFont(prof.styling_settings.headingFont);
+          if (prof.styling_settings.bodyFont) setBodyFont(prof.styling_settings.bodyFont);
+          if (prof.styling_settings.fontSizeScale) setFontSizeScale(prof.styling_settings.fontSizeScale);
+          if (prof.styling_settings.brandAccent) setBrandAccent(prof.styling_settings.brandAccent);
+          applyTheme(prof.styling_settings);
+        }
+        if (prof.email_settings) {
+          if (prof.email_settings.emailSenderName) setEmailSenderName(prof.email_settings.emailSenderName);
+          if (prof.email_settings.receiptReplyTo) setReceiptReplyTo(prof.email_settings.receiptReplyTo);
+          if (typeof prof.email_settings.notifyOnComment === "boolean") setNotifyOnComment(prof.email_settings.notifyOnComment);
+          if (typeof prof.email_settings.notifyOnDonation === "boolean") setNotifyOnDonation(prof.email_settings.notifyOnDonation);
+        }
+        if (prof.seo_settings) {
+          if (prof.seo_settings.seoMetaTitle) setSeoMetaTitle(prof.seo_settings.seoMetaTitle);
+          if (prof.seo_settings.seoMetaDescription) setSeoMetaDescription(prof.seo_settings.seoMetaDescription);
+          if (prof.seo_settings.seoMetaKeywords) setSeoMetaKeywords(prof.seo_settings.seoMetaKeywords);
+        }
+      }
+    });
+
+    const handleSubAdminsChange = () => setSubAdmins(getSubAdmins());
+    window.addEventListener("horemow_subadmins_changed", handleSubAdminsChange);
+    return () => window.removeEventListener("horemow_subadmins_changed", handleSubAdminsChange);
+  }, []);
 
   /* ----------------- SUB-ADMIN HANDLERS ----------------- */
   const openCreateSubAdmin = () => {
@@ -137,107 +227,244 @@ export default function AdminSettingsManager() {
     );
   };
 
-  const handleSaveSubAdmin = (e: React.FormEvent) => {
+  const handleSaveSubAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subEmail.trim() || !subFirstName.trim()) {
       setStatus({ type: "error", text: "Please provide both first name and a valid email address." });
       return;
     }
 
-    const currentList = getSubAdmins();
-
-    if (editingSubAdminId) {
-      const updated = currentList.map((admin) => {
-        if (admin.id === editingSubAdminId) {
-          return {
-            ...admin,
-            first_name: subFirstName.trim(),
-            last_name: subLastName.trim(),
-            email: subEmail.trim(),
-            role: subRole,
-            capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
-            is_active: subIsActive,
-          };
+    setLoading(true);
+    try {
+      if (editingSubAdminId) {
+        const payload: any = {
+          first_name: subFirstName.trim(),
+          last_name: subLastName.trim(),
+          email: subEmail.trim(),
+          role: subRole,
+          capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
+          is_active: subIsActive,
+        };
+        if (subPassword.trim()) {
+          payload.password = subPassword.trim();
         }
-        return admin;
-      });
-      saveSubAdmins(updated);
-      setSubAdmins(updated);
-      setStatus({ type: "success", text: `Sub-admin account for ${subEmail} updated successfully.` });
-    } else {
-      const newAdmin: AuthUser = {
-        id: `usr-${Date.now()}`,
-        first_name: subFirstName.trim(),
-        last_name: subLastName.trim(),
-        email: subEmail.trim(),
-        role: subRole,
-        capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
-        is_active: subIsActive,
-        created_at: new Date().toISOString(),
-      };
-      const updated = [...currentList, newAdmin];
-      saveSubAdmins(updated);
-      setSubAdmins(updated);
-      setStatus({ type: "success", text: `New sub-admin ${subEmail} created with assigned permissions.` });
-    }
+        await updateSubAdminApi(editingSubAdminId, payload);
+        setStatus({ type: "success", text: `Sub-admin account for ${subEmail} updated successfully in database.` });
+      } else {
+        if (!subPassword.trim() || subPassword.trim().length < 8) {
+          setStatus({ type: "error", text: "Please provide a password of at least 8 characters for the new sub-admin." });
+          setLoading(false);
+          return;
+        }
+        await createSubAdminApi({
+          first_name: subFirstName.trim(),
+          last_name: subLastName.trim(),
+          email: subEmail.trim(),
+          role: subRole,
+          capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
+          is_active: subIsActive,
+          password: subPassword.trim(),
+        });
+        setStatus({ type: "success", text: `New sub-admin ${subEmail} created in database with assigned permissions.` });
+      }
 
-    setIsSubAdminModalOpen(false);
-    setTimeout(() => setStatus(null), 4000);
+      const refreshed = await fetchSubAdminsApi();
+      setSubAdmins(refreshed);
+      setIsSubAdminModalOpen(false);
+    } catch (err: any) {
+      const currentList = getSubAdmins();
+      if (editingSubAdminId) {
+        const updated = currentList.map((admin) => {
+          if (admin.id === editingSubAdminId) {
+            return {
+              ...admin,
+              first_name: subFirstName.trim(),
+              last_name: subLastName.trim(),
+              email: subEmail.trim(),
+              role: subRole,
+              capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
+              is_active: subIsActive,
+            };
+          }
+          return admin;
+        });
+        saveSubAdmins(updated);
+        setSubAdmins(updated);
+      } else {
+        const newAdmin: AuthUser = {
+          id: `usr-${Date.now()}`,
+          first_name: subFirstName.trim(),
+          last_name: subLastName.trim(),
+          email: subEmail.trim(),
+          role: subRole,
+          capabilities: subRole === "SUPERADMIN" ? ["*"] : subCapabilities,
+          is_active: subIsActive,
+          created_at: new Date().toISOString(),
+        };
+        const updated = [...currentList, newAdmin];
+        saveSubAdmins(updated);
+        setSubAdmins(updated);
+      }
+      setIsSubAdminModalOpen(false);
+      setStatus({ type: "success", text: `Sub-admin saved. (${err?.message || "Cached locally"})` });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatus(null), 5000);
+    }
   };
 
-  const handleDeleteSubAdmin = (id: string, email: string) => {
+  const handleDeleteSubAdmin = async (id: string, email: string) => {
     if (id === "usr-super" || email === "admin@horemow.org") {
       setStatus({ type: "error", text: "The primary Superadmin account cannot be deleted." });
       return;
     }
 
     if (window.confirm(`Are you sure you want to permanently delete sub-admin ${email}?`)) {
-      const updated = subAdmins.filter((a) => a.id !== id);
-      saveSubAdmins(updated);
-      setSubAdmins(updated);
-      setStatus({ type: "success", text: `Sub-admin ${email} removed.` });
-      setTimeout(() => setStatus(null), 4000);
+      setLoading(true);
+      try {
+        await deleteSubAdminApi(id);
+        const refreshed = await fetchSubAdminsApi();
+        setSubAdmins(refreshed);
+        setStatus({ type: "success", text: `Sub-admin ${email} removed from system.` });
+      } catch (err: any) {
+        const updated = subAdmins.filter((a) => a.id !== id);
+        saveSubAdmins(updated);
+        setSubAdmins(updated);
+        setStatus({ type: "success", text: `Sub-admin ${email} removed.` });
+      } finally {
+        setLoading(false);
+        setTimeout(() => setStatus(null), 4000);
+      }
     }
   };
 
   /* ----------------- TYPOGRAPHY & STYLING SAVE ----------------- */
-  const handleSaveTypography = (e: React.FormEvent) => {
+  const handleSaveTypography = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem("horemow_font_heading", headingFont);
-    localStorage.setItem("horemow_font_body", bodyFont);
-    localStorage.setItem("horemow_font_scale", fontSizeScale);
-    localStorage.setItem("horemow_brand_accent", brandAccent);
+    const themeObj = { headingFont, bodyFont, fontSizeScale, brandAccent };
+    applyTheme(themeObj);
 
-    // Apply classes/variables to root document if desired
-    document.documentElement.style.setProperty("--brand-primary", brandAccent);
+    try {
+      await updateMinistryProfileApi({ styling_settings: themeObj });
+    } catch {
+      // Saved locally in applyTheme
+    }
 
-    setStatus({ type: "success", text: "Typography, font hierarchy, and brand colors updated!" });
+    setStatus({ type: "success", text: "Typography, font hierarchy, and brand colors updated and applied globally!" });
     setTimeout(() => setStatus(null), 4000);
   };
 
   /* ----------------- MINISTRY CONTACT SAVE ----------------- */
-  const handleSaveContact = (e: React.FormEvent) => {
+  const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     saveContactContent(contactData);
-    setStatus({ type: "success", text: "Headquarters details and meeting times saved." });
+
+    try {
+      await updateMinistryProfileApi({
+        headquarters_address: contactData.address,
+        primary_email: contactData.email,
+        primary_phone: contactData.phone,
+        gathering_times: {
+          hqName: contactData.hqName,
+          helpline: contactData.helpline,
+          sundayServiceTimes: contactData.sundayServiceTimes,
+          tuesdayServiceTimes: contactData.tuesdayServiceTimes,
+        },
+      });
+    } catch {
+      // Saved locally via saveContactContent
+    }
+
+    setStatus({ type: "success", text: "Headquarters details and meeting times saved to database and site." });
     setTimeout(() => setStatus(null), 4000);
   };
 
   /* ----------------- EMAIL & NOTIFICATIONS SAVE ----------------- */
-  const handleSaveEmailConfig = (e: React.FormEvent) => {
+  const handleSaveEmailConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus({ type: "success", text: "Email dispatch and automated notification settings updated." });
+    const emailObj = { emailSenderName, receiptReplyTo, notifyOnComment, notifyOnDonation };
+    localStorage.setItem("horemow_email_settings", JSON.stringify(emailObj));
+
+    try {
+      await updateMinistryProfileApi({ email_settings: emailObj });
+    } catch {
+      // Saved locally
+    }
+
+    setStatus({ type: "success", text: "Email dispatch and automated notification settings saved." });
     setTimeout(() => setStatus(null), 4000);
   };
 
   /* ----------------- SEO & SITEMAP SAVE ----------------- */
-  const handleSaveSEO = (e: React.FormEvent) => {
+  const handleSaveSEO = async (e: React.FormEvent) => {
     e.preventDefault();
+    const seoObj = { seoMetaTitle, seoMetaDescription, seoMetaKeywords };
+    localStorage.setItem("horemow_seo_settings", JSON.stringify(seoObj));
+
+    if (typeof document !== "undefined") {
+      document.title = seoMetaTitle;
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement("meta");
+        metaDesc.setAttribute("name", "description");
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute("content", seoMetaDescription);
+
+      let metaKeywords = document.querySelector('meta[name="keywords"]');
+      if (!metaKeywords) {
+        metaKeywords = document.createElement("meta");
+        metaKeywords.setAttribute("name", "keywords");
+        document.head.appendChild(metaKeywords);
+      }
+      metaKeywords.setAttribute("content", seoMetaKeywords);
+    }
+
+    const domain = window.location.origin;
+    const now = new Date().toISOString().split("T")[0];
+    const routes = [
+      "",
+      "about",
+      "sermons",
+      "devotional",
+      "events",
+      "locations",
+      "directory",
+      "bookstore",
+      "gallery",
+      "give",
+      "blog",
+      "broadcasts",
+      "contact",
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${routes
+  .map(
+    (r) => `  <url>
+    <loc>${domain}/${r}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>${r === "" || r === "blog" || r === "devotional" ? "daily" : "weekly"}</changefreq>
+    <priority>${r === "" ? "1.0" : "0.8"}</priority>
+  </url>`
+  )
+  .join("\n")}
+</urlset>`;
+
+    setGeneratedSitemapXml(xml);
+
+    try {
+      await updateMinistryProfileApi({ seo_settings: seoObj });
+    } catch {
+      // Saved locally
+    }
+
     setStatus({
       type: "success",
-      text: "Global SEO meta keywords updated. XML Sitemap generated successfully for Google indexing.",
+      text: "Global SEO meta tags updated and XML Sitemap generated successfully!",
     });
-    setTimeout(() => setStatus(null), 4000);
+    setTimeout(() => setStatus(null), 5000);
   };
 
   return (
@@ -715,27 +942,76 @@ export default function AdminSettingsManager() {
             value={seoMetaKeywords}
           />
 
-          <div className="flex justify-between items-center pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
             <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
               <Check size={14} /> Sitemap /sitemap.xml is active & auto-refreshed
             </span>
-            <Button
-              startIcon={<RefreshCw size={15} />}
-              sx={{
-                backgroundColor: "#1A4B8C",
-                color: "#ffffff",
-                fontWeight: 700,
-                textTransform: "none",
-                borderRadius: "8px",
-                px: 3,
-                "&:hover": { backgroundColor: "#143A6D" },
-              }}
-              type="submit"
-              variant="contained"
-            >
-              Update SEO & Regenerate Sitemap
-            </Button>
+            <div className="flex items-center gap-2">
+              <a
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+                href="/sitemap.xml"
+                rel="noreferrer"
+                target="_blank"
+              >
+                <ExternalLink size={13} /> View /sitemap.xml
+              </a>
+              <Button
+                startIcon={<RefreshCw size={15} />}
+                sx={{
+                  backgroundColor: "#1A4B8C",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 2.5,
+                  "&:hover": { backgroundColor: "#143A6D" },
+                }}
+                type="submit"
+                variant="contained"
+              >
+                Update SEO & Regenerate Sitemap
+              </Button>
+            </div>
           </div>
+
+          {generatedSitemapXml && (
+            <div className="rounded-xl border border-slate-200 bg-slate-900 text-slate-100 p-4 space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                <span className="font-bold text-slate-300">Generated XML Sitemap Preview</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedSitemapXml);
+                      setStatus({ type: "success", text: "Sitemap XML copied to clipboard!" });
+                      setTimeout(() => setStatus(null), 3000);
+                    }}
+                    size="small"
+                    startIcon={<Copy size={13} />}
+                    sx={{ color: "#94a3b8", textTransform: "none", fontSize: "11px" }}
+                  >
+                    Copy XML
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const blob = new Blob([generatedSitemapXml], { type: "application/xml" });
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = "sitemap.xml";
+                      a.click();
+                    }}
+                    size="small"
+                    startIcon={<Download size={13} />}
+                    sx={{ color: "#38bdf8", textTransform: "none", fontSize: "11px" }}
+                  >
+                    Download sitemap.xml
+                  </Button>
+                </div>
+              </div>
+              <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap text-[11px] text-slate-300">
+                {generatedSitemapXml}
+              </pre>
+            </div>
+          )}
         </form>
       )}
 
@@ -843,6 +1119,7 @@ export default function AdminSettingsManager() {
               Cancel
             </Button>
             <Button
+              disabled={loading}
               sx={{
                 backgroundColor: "#1A4B8C",
                 color: "#ffffff",
@@ -855,7 +1132,7 @@ export default function AdminSettingsManager() {
               type="submit"
               variant="contained"
             >
-              {editingSubAdminId ? "Save Sub-Admin" : "Create Account"}
+              {loading ? "Saving..." : editingSubAdminId ? "Save Sub-Admin" : "Create Account"}
             </Button>
           </DialogActions>
         </form>

@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
+import { applyStoredTheme } from "./lib/theme";
 import PublicLayout from "./layouts/PublicLayout";
 import AboutPage from "./pages/AboutPage";
 import BlogPage from "./pages/BlogPage";
@@ -55,6 +56,10 @@ function WithPublicLayout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    applyStoredTheme();
+  }, []);
+
   return (
     <>
       <RouteMetadata />

@@ -107,7 +107,7 @@ describe("public HOREMOW shell", () => {
     expect(screen.queryByText(/verified 256-bit ssl/i)).not.toBeInTheDocument();
   });
 
-  it("shows image-backed event and journal previews on the homepage", () => {
+  it("shows admin-managed event flyers, dates and journal previews on the homepage", () => {
     render(
       <MemoryRouter initialEntries={["/"]}>
         <App />
@@ -116,8 +116,30 @@ describe("public HOREMOW shell", () => {
 
     expect(screen.getByRole("heading", { name: /upcoming gatherings/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /from the horemow journal/i })).toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: /horemow gathering:/i })).toHaveLength(2);
+    expect(
+      screen.getByRole("img", { name: /international holiness & revival conference event flyer/i })
+        .getAttribute("src"),
+    ).toContain("cloudinary.com");
+    expect(screen.getByText("July 24 – 28, 2026")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /event flyer/i })).toHaveLength(2);
     expect(screen.getByRole("heading", { name: /a daily walk shaped by the word/i })).toBeInTheDocument();
+  });
+
+  it("shows admin-managed flyers, dates and full event details on the events page", () => {
+    render(
+      <MemoryRouter initialEntries={["/events"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("img", { name: /international holiness & revival conference event flyer/i })
+        .getAttribute("src"),
+    ).toContain("cloudinary.com");
+    expect(screen.getByText("July 24 – 28, 2026")).toBeInTheDocument();
+    expect(screen.getByText(/8:00 AM – 8:00 PM WAT Daily/)).toBeInTheDocument();
+    expect(screen.getByText(/HOREMOW International Camp Ground/)).toBeInTheDocument();
+    expect(screen.getByText(/Hebrews 12:14/)).toBeInTheDocument();
   });
 
   it("shows the public conference gallery with authentic category filtering", () => {

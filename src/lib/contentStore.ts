@@ -272,6 +272,28 @@ export const DEFAULT_EVENTS: MinistryEvent[] = [
   },
 ];
 
+export type HomepageAnnouncement = {
+  enabled: boolean;
+  eyebrow: string;
+  title: string;
+  message: string;
+  imageUrl: string;
+  actionLabel: string;
+  actionUrl: string;
+  updatedAt: string;
+};
+
+export const DEFAULT_HOMEPAGE_ANNOUNCEMENT: HomepageAnnouncement = {
+  enabled: false,
+  eyebrow: "Latest update",
+  title: "",
+  message: "",
+  imageUrl: "",
+  actionLabel: "View all events",
+  actionUrl: "/events",
+  updatedAt: "",
+};
+
 /* -------------------------------------------------------------
  * 5. LOCATION TYPES & DEFAULTS
  * ------------------------------------------------------------- */
@@ -459,14 +481,30 @@ export const DEFAULT_CONTACT_DETAILS: ContactDetails = {
 };
 
 /* -------------------------------------------------------------
- * MASTER STORAGE SYSTEM & EVENT BUS
+ * MASTER IN-MEMORY CMS STORE & EVENT BUS (NO BROWSER STORAGE)
  * ------------------------------------------------------------- */
-const STORAGE_PREFIX = "horemow_cms_";
+const memoryStore: Record<string, string> = {};
 const CMS_UPDATE_EVENT = "horemow_cms_updated";
+
+// Automatically purge any previous legacy CMS keys from browser localStorage
+try {
+  if (typeof window !== "undefined" && window.localStorage) {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("horemow_cms_")) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  }
+} catch {
+  // Ignore
+}
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
+    const raw = memoryStore[key];
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -476,10 +514,10 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 
 function saveToStorage<T>(key: string, data: T): void {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
+    memoryStore[key] = JSON.stringify(data);
     window.dispatchEvent(new CustomEvent(CMS_UPDATE_EVENT, { detail: { key, data } }));
   } catch (e) {
-    console.error(`Failed to save ${key} to storage`, e);
+    console.error(`Failed to save ${key} to memory store`, e);
   }
 }
 
@@ -516,7 +554,16 @@ export const saveDevotionalsContent = (d: DevotionalEntry[]) => saveToStorage("d
 
 export const getEventsContent = () => loadFromStorage("events", DEFAULT_EVENTS);
 export const saveEventsContent = (d: MinistryEvent[]) => saveToStorage("events", d);
-
+export const getHomepageAnnouncement = (): HomepageAnnouncement => ({
+  ...DEFAULT_HOMEPAGE_ANNOUNCEMENT,
+  ...loadFromStorage<Partial<HomepageAnnouncement>>("homepageAnnouncement", {}),
+});
+export const saveHomepageAnnouncement = (d: HomepageAnnouncement) =>
+  saveToStorage("homepageAnnouncement", d);
+export const resetHomepageAnnouncement = () => {
+  saveHomepageAnnouncement(DEFAULT_HOMEPAGE_ANNOUNCEMENT);
+  return DEFAULT_HOMEPAGE_ANNOUNCEMENT;
+};
 export const getGalleryContent = () => loadFromStorage("gallery", CONFERENCE_GALLERY_IMAGES);
 export const saveGalleryContent = (d: ConferenceImage[]) => saveToStorage("gallery", d);
 export const resetGalleryContent = () => {
@@ -829,34 +876,18 @@ export interface AnalyticsData {
   devices: Array<{ type: string; pct: number; count: number }>;
 }
 
-export function recordPageView(path: string) {
-  try {
-    const visitsKey = "horemow_page_visits";
-    const current = JSON.parse(localStorage.getItem(visitsKey) || "{}");
-    current[path] = (current[path] || 0) + 1;
-    localStorage.setItem(visitsKey, JSON.stringify(current));
+const memoryPageVisits: Record<string, number> = {};
+const memoryDailyVisits: Record<string, number> = {};
 
-    // Also update daily log
-    const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const dailyKey = "horemow_daily_visits";
-    const daily = JSON.parse(localStorage.getItem(dailyKey) || "{}");
-    daily[today] = (daily[today] || 0) + 1;
-    localStorage.setItem(dailyKey, JSON.stringify(daily));
-  } catch {
-    // Ignore storage issues
-  }
+export function recordPageView(path: string) {
+  memoryPageVisits[path] = (memoryPageVisits[path] || 0) + 1;
+  const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  memoryDailyVisits[today] = (memoryDailyVisits[today] || 0) + 1;
 }
 
 export function getAnalyticsData(): AnalyticsData {
-  let customVisits: Record<string, number> = {};
-  let dailyVisitsMap: Record<string, number> = {};
-  try {
-    customVisits = JSON.parse(localStorage.getItem("horemow_page_visits") || "{}");
-    dailyVisitsMap = JSON.parse(localStorage.getItem("horemow_daily_visits") || "{}");
-  } catch {
-    customVisits = {};
-    dailyVisitsMap = {};
-  }
+  const customVisits: Record<string, number> = { ...memoryPageVisits };
+  const dailyVisitsMap: Record<string, number> = { ...memoryDailyVisits };
 
   const totalViews = Object.values(customVisits).reduce((a, b) => a + b, 0);
   const uniqueVisitors = Math.ceil(totalViews * 0.7);
@@ -956,6 +987,8 @@ export const useAboutContent = () => useCmsDomain("about", getAboutContent);
 export const useSermonsContent = () => useCmsDomain("sermons", getSermonsContent);
 export const useDevotionalsContent = () => useCmsDomain("devotionals", getDevotionalsContent);
 export const useEventsContent = () => useCmsDomain("events", getEventsContent);
+export const useHomepageAnnouncement = () =>
+  useCmsDomain("homepageAnnouncement", getHomepageAnnouncement);
 export const useGalleryContent = () => useCmsDomain("gallery", getGalleryContent);
 export const usePublicationsContent = () => useCmsDomain("publications", getPublicationsContent);
 export const useLocationsContent = () => useCmsDomain("locations", getLocationsContent);

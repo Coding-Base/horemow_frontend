@@ -34,6 +34,22 @@ export default function AdminLayout() {
   }, [pathname]);
 
   useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       navigate("/admin/login?session_expired=1", { replace: true });
     }
@@ -54,13 +70,13 @@ export default function AdminLayout() {
   }).format(new Date());
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
+    <div className="relative min-h-screen w-full bg-[#f4f5f7]">
       <AdminSidebar
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
       />
-      <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-[64px] items-center justify-between gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:min-h-[72px] sm:px-7 lg:px-9">
+      <div className="flex min-h-screen w-full min-w-0 flex-col lg:pl-[272px]">
+        <header className="sticky top-0 z-20 flex w-full min-h-[64px] items-center justify-between gap-3 border-b border-slate-200/80 bg-white/95 px-4 backdrop-blur-xl sm:min-h-[72px] sm:px-7 lg:px-9">
           <div className="flex min-w-0 items-center gap-3">
             <button
               aria-controls="admin-navigation"
@@ -125,7 +141,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1500px] flex-1 p-4 sm:p-6 lg:p-9">
+        <main className="mx-auto w-full max-w-[1500px] min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-9">
           {canAccess ? (
             <Outlet />
           ) : (

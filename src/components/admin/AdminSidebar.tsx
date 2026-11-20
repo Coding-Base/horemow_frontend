@@ -59,7 +59,7 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[272px] flex-col border-r border-white/10 bg-[#0b1c2d] text-white shadow-2xl transition-transform duration-300 ease-out lg:sticky lg:top-0 lg:z-40 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[272px] max-w-[85vw] flex-col overflow-hidden border-r border-white/10 bg-[#0b1c2d] text-white shadow-2xl transition-transform duration-300 ease-out overscroll-contain lg:z-30 lg:max-w-none lg:translate-x-0 lg:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         id="admin-navigation"
@@ -111,7 +111,7 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
         ))}
       </nav>
 
-      <div className="hidden border-t border-white/10 bg-white/[.03] p-4 lg:block">
+      <div className="border-t border-white/10 bg-white/[.03] p-4">
         <div className="flex items-center gap-3">
           <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#d9ba70]/30 bg-[#d9ba70]/10 text-xs font-bold text-[#e7d29d]">
             {user?.first_name ? user.first_name[0] : "A"}

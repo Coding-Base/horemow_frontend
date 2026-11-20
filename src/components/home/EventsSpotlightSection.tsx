@@ -1,13 +1,21 @@
-import { ArrowUpRight, CalendarDays, Clock3, MapPin } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, MapPin, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
-import { CONFERENCE_GALLERY_IMAGES } from "../../data/mediaAssets";
-import { useEventsContent, useGalleryContent } from "../../lib/contentStore";
+import { useEventsContent } from "../../lib/contentStore";
 import Eyebrow from "../common/Eyebrow";
+
+function getRegistrationUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function EventsSpotlightSection() {
   const events = useEventsContent();
-  const galleryImages = useGalleryContent();
-  const upcomingEvents = events.filter((e) => e.category === "Upcoming").slice(0, 2);
+  const upcomingEvents = events.filter((event) => event.category === "Upcoming").slice(0, 2);
 
   if (upcomingEvents.length === 0) return null;
 
@@ -21,7 +29,7 @@ export default function EventsSpotlightSection() {
               Upcoming Gatherings.
             </h2>
             <p className="mt-2 text-xs text-slate-600 sm:text-sm">
-              Prepare your heart to attend upcoming national camps and ministers' conferences.
+              Dates, flyers and details shared by the HOREMOW events team.
             </p>
           </div>
           <Link
@@ -33,70 +41,76 @@ export default function EventsSpotlightSection() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {upcomingEvents.map((ev, index) => {
-            const image =
-              galleryImages[index] ??
-              CONFERENCE_GALLERY_IMAGES[index % CONFERENCE_GALLERY_IMAGES.length];
-
+          {upcomingEvents.map((event) => {
+            const registrationUrl = getRegistrationUrl(event.registrationUrl);
             return (
-              <article
-                className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-[#fafaf7] shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
-                key={ev.id}
-              >
+            <article
+              className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-[#fafaf7] shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+              key={event.id}
+            >
+              {event.flyerUrl ? (
                 <div className="relative aspect-[16/8] overflow-hidden bg-slate-200">
                   <img
-                    alt={`HOREMOW gathering: ${image.title}`}
+                    alt={`${event.title} event flyer`}
                     className="size-full object-cover"
                     loading="lazy"
-                    src={image.url}
+                    src={event.flyerUrl}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e2133]/70 via-transparent to-black/10" />
-                  <span className="absolute bottom-4 left-5 rounded-full bg-white/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-blue">
-                    Upcoming gathering
+                </div>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="grid aspect-[16/8] place-items-center bg-gradient-to-br from-[#0b2037] to-[#1a4b8c] text-white/80"
+                >
+                  <CalendarDays size={40} />
+                </div>
+              )}
+              <div className="flex flex-1 flex-col p-6 sm:p-8">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-brand-blue">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays size={15} /> {event.date}
                   </span>
-                </div>
-                <div className="flex flex-1 flex-col justify-between p-6 sm:p-8">
-                  <div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-full bg-brand-green/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-green">
-                        Confirmed Gathering
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-brand-blue">
-                        <CalendarDays size={15} /> {ev.date}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-4 text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                      {ev.title}
-                    </h3>
-
-                    <p className="mt-2 text-xs leading-6 text-slate-600">
-                      {ev.description}
-                    </p>
-
-                    <div className="mt-5 space-y-2 border-t border-slate-200/60 pt-4 text-xs text-slate-600">
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="text-brand-blue" size={15} /> {ev.time}
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="mt-0.5 shrink-0 text-brand-blue" size={15} /> {ev.location}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200/60 pt-4">
-                    <span className="text-[11px] font-semibold text-slate-500">
-                      Admission is free · Registration open
+                  {event.time && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock3 size={15} /> {event.time}
                     </span>
-                    <Link
-                      className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-brand-blue hover:underline"
-                      to="/events"
-                    >
-                      Event guidance →
-                    </Link>
-                  </div>
+                  )}
                 </div>
-              </article>
+
+                <h3 className="mt-4 text-xl font-bold tracking-tight text-ink sm:text-2xl">
+                  {event.title}
+                </h3>
+                <p className="mt-2 whitespace-pre-line text-xs leading-6 text-slate-600">
+                  {event.description}
+                </p>
+
+                <div className="mt-5 space-y-3 border-t border-slate-200/60 pt-4 text-xs text-slate-600">
+                  {event.location && (
+                    <p className="flex items-start gap-2">
+                      <MapPin className="mt-0.5 shrink-0 text-brand-blue" size={15} />
+                      <span>{event.location}</span>
+                    </p>
+                  )}
+                  {event.themeVerse && (
+                    <p className="flex items-start gap-2">
+                      <BookOpen className="mt-0.5 shrink-0 text-brand-green" size={15} />
+                      <span>{event.themeVerse}</span>
+                    </p>
+                  )}
+                </div>
+
+                {registrationUrl && (
+                  <a
+                    className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-brand-blue px-4 py-2 text-xs font-bold text-white transition hover:bg-[#143a6d]"
+                    href={registrationUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Register for this event <ArrowUpRight size={15} />
+                  </a>
+                )}
+              </div>
+            </article>
             );
           })}
         </div>
