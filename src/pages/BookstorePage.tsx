@@ -2,13 +2,12 @@ import { ArrowUpRight, BookMarked, BookOpen, Download, Search } from "lucide-rea
 import { useMemo, useState } from "react";
 import PageIntro from "../components/common/PageIntro";
 import SearchField from "../components/common/SearchField";
-import { usePublicationsContent, useContactContent } from "../lib/contentStore";
+import { usePublicationsContent } from "../lib/contentStore";
 import BookReaderModal from "../components/books/BookReaderModal";
 import type { Publication } from "../data/content";
 
 export default function BookstorePage() {
   const publications = usePublicationsContent();
-  const contact = useContactContent();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [readingBook, setReadingBook] = useState<Publication | null>(null);
@@ -35,7 +34,7 @@ export default function BookstorePage() {
       />
       <section className="py-10">
         <div className="mx-auto w-[min(1200px,calc(100%-2.25rem))]">
-          <div className="grid gap-4 rounded-2xl bg-[#e9e3d8] p-5 sm:grid-cols-[52px_1fr_auto] sm:items-center sm:p-7">
+          <div className="grid gap-4 rounded-2xl bg-[#e9e3d8] p-5 sm:grid-cols-[52px_1fr] sm:items-center sm:p-7">
             <span className="grid size-12 place-items-center rounded-xl border border-brand-blue/25 bg-white text-brand-blue">
               <BookMarked size={25} />
             </span>
@@ -50,12 +49,6 @@ export default function BookstorePage() {
                 Books by Pastor Paul Rika and HOREMOW publications. Ask about bulk copies and languages.
               </p>
             </div>
-            <a
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-400 bg-white px-4 text-xs font-bold hover:border-brand-blue hover:text-brand-blue"
-              href={`mailto:${contact.email}?subject=HOREMOW%20publication%20enquiry`}
-            >
-              Enquire <ArrowUpRight size={15} />
-            </a>
           </div>
 
           <div className="my-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
