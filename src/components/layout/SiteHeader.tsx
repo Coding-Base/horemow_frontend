@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import Logo from "./Logo";
 
 const links = [
+  ["Home", "/"],
   ["About", "/about"],
   ["Sermons", "/sermons"],
   ["Devotional", "/devotional"],
@@ -48,6 +49,7 @@ export default function SiteHeader() {
                       isActive ? "text-brand-blue" : "text-slate-700"
                     }`
                   }
+                  end={path === "/"}
                   key={path}
                   to={path}
                 >
@@ -117,6 +119,7 @@ export default function SiteHeader() {
                       isActive ? "text-brand-blue" : "text-slate-700"
                     }`
                   }
+                  end={path === "/"}
                   key={path}
                   onClick={() => setMenuOpen(false)}
                   to={path}

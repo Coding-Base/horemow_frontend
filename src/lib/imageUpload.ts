@@ -68,9 +68,39 @@ export async function uploadImageToCloudinary(file: File, folder = "horemow_medi
 }
 
 /**
+ * Reads a File locally as a base64 Data URL.
+ * Used as an instant fallback when backend is offline or during local development.
+ */
+export function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read image file locally."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Primary export used across admin managers.
- * Routes directly to Cloudinary upload!
+ * Attempts Cloudinary upload via backend; if backend connection is refused / unavailable,
+ * gracefully falls back to local data URL so admin flows never crash.
  */
 export async function fileToDataUrl(file: File, folder = "horemow_media"): Promise<string> {
-  return uploadImageToCloudinary(file, folder);
+  try {
+    return await uploadImageToCloudinary(file, folder);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    // If backend server is not running or network failed, fallback gracefully to base64
+    if (
+      errorMsg.includes("Cannot connect to backend") ||
+      errorMsg.includes("Failed to fetch") ||
+      errorMsg.includes("NetworkError") ||
+      errorMsg.includes("ERR_CONNECTION_REFUSED") ||
+      errorMsg.includes("Frontend is not linked to backend")
+    ) {
+      console.warn("Backend unavailable; using local image data URL fallback:", errorMsg);
+      return await readFileAsBase64(file);
+    }
+    throw err;
+  }
 }

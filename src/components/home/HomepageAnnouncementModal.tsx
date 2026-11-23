@@ -6,6 +6,7 @@ import {
   getHomepageAnnouncement,
   type HomepageAnnouncement,
   useHomepageAnnouncement,
+  useAdsContent,
 } from "../../lib/contentStore";
 import {
   fetchHomepageAnnouncement,
@@ -28,9 +29,29 @@ function getActionUrl(value: string): string | null {
 
 export default function HomepageAnnouncementModal() {
   const localAnnouncement = useHomepageAnnouncement();
+  const ads = useAdsContent();
   const [announcement, setAnnouncement] = useState<HomepageAnnouncement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const activeAnnouncement = isHomepageAnnouncementApiConfigured ? announcement : localAnnouncement;
+
+  // Check if an active ad exists for modal placement
+  const activeAd = ads.find(
+    (a) => a.isActive && (a.placement === "modal" || a.placement === "both")
+  );
+
+  const activeAnnouncement: HomepageAnnouncement | null = activeAd
+    ? {
+        enabled: true,
+        title: activeAd.title,
+        message: activeAd.description,
+        eyebrow: activeAd.badge || "Ministry Announcement",
+        imageUrl: activeAd.imageUrl || "",
+        actionLabel: activeAd.ctaText || "Learn More",
+        actionUrl: activeAd.targetUrl,
+        updatedAt: activeAd.createdAt || activeAd.id,
+      }
+    : isHomepageAnnouncementApiConfigured
+    ? announcement
+    : localAnnouncement;
 
   useEffect(() => {
     if (!isHomepageAnnouncementApiConfigured) {

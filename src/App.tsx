@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { applyStoredTheme } from "./lib/theme";
+import ToastContainer from "./components/common/ToastContainer";
 import PublicLayout from "./layouts/PublicLayout";
 import AboutPage from "./pages/AboutPage";
 import BlogPage from "./pages/BlogPage";
@@ -62,6 +63,7 @@ export default function App() {
 
   return (
     <>
+      <ToastContainer />
       <RouteMetadata />
       <AnalyticsTracker />
       <Routes>

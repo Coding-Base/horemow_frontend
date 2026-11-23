@@ -34,14 +34,19 @@ import {
   Switch,
 } from "@mui/material";
 import {
+  getDirectoryContent,
   getLocationsContent,
+  saveDirectoryContent,
   saveLocationsContent,
   useLocationsContent,
   type FellowshipLocation,
+  type OverseerItem,
 } from "../../lib/contentStore";
 import { CONTINENTS_DATA } from "../../lib/locationData";
+import FellowshipMap from "../common/FellowshipMap";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { showToast } from "../../lib/soundToast";
 
 const ITEMS_PER_PAGE = 5;
 const CONTINENTS = Object.keys(CONTINENTS_DATA);
@@ -194,6 +199,7 @@ export default function AdminLocationsManager() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [showMapPreview, setShowMapPreview] = useState(true);
 
   // Form Fields
   const [name, setName] = useState("");
@@ -204,6 +210,8 @@ export default function AdminLocationsManager() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isHeadquarters, setIsHeadquarters] = useState(false);
+  const [latitude, setLatitude] = useState<string>("");
+  const [longitude, setLongitude] = useState<string>("");
 
   // Overseer of State/Location Fields
   const [overseerName, setOverseerName] = useState("");
@@ -267,6 +275,8 @@ export default function AdminLocationsManager() {
     setPhone("+234 806 191 5797");
     setEmail("info@horemow.org");
     setIsHeadquarters(false);
+    setLatitude("8.9565");
+    setLongitude("7.1895");
     setOverseerName("");
     setOverseerTitle("State Coordinator");
     setOverseerPhone("");
@@ -287,6 +297,8 @@ export default function AdminLocationsManager() {
     setPhone(loc.phone);
     setEmail(loc.email);
     setIsHeadquarters(Boolean(loc.isHeadquarters));
+    setLatitude(loc.latitude !== undefined && loc.latitude !== null ? String(loc.latitude) : "");
+    setLongitude(loc.longitude !== undefined && loc.longitude !== null ? String(loc.longitude) : "");
     setOverseerName(loc.overseerName || "");
     setOverseerTitle(loc.overseerTitle || "State Coordinator");
     setOverseerPhone(loc.overseerPhone || "");
@@ -321,6 +333,9 @@ export default function AdminLocationsManager() {
     const resolvedState =
       isAddingCustomState && customStateInput.trim() ? customStateInput.trim() : stateOrArea;
 
+    const parsedLat = latitude.trim() ? parseFloat(latitude.trim()) : undefined;
+    const parsedLng = longitude.trim() ? parseFloat(longitude.trim()) : undefined;
+
     if (editingLocationId) {
       const updated = currentAll.map((loc) => {
         if (loc.id === editingLocationId) {
@@ -334,6 +349,8 @@ export default function AdminLocationsManager() {
             phone: phone.trim() || "+234 806 191 5797",
             email: email.trim() || "info@horemow.org",
             isHeadquarters,
+            latitude: Number.isFinite(parsedLat) ? parsedLat : loc.latitude,
+            longitude: Number.isFinite(parsedLng) ? parsedLng : loc.longitude,
             overseerName: overseerName.trim() || undefined,
             overseerTitle: overseerTitle.trim() || undefined,
             overseerPhone: overseerPhone.trim() || undefined,
@@ -344,7 +361,7 @@ export default function AdminLocationsManager() {
         return loc;
       });
       saveLocationsContent(updated);
-      setStatus({ type: "success", text: `Location "${name}" updated successfully.` });
+      showToast(`Location "${name}" updated successfully.`, "success");
     } else {
       const newLoc: FellowshipLocation = {
         id: `loc-${Date.now()}`,
@@ -356,6 +373,8 @@ export default function AdminLocationsManager() {
         phone: phone.trim() || "+234 806 191 5797",
         email: email.trim() || "info@horemow.org",
         isHeadquarters,
+        latitude: Number.isFinite(parsedLat) ? parsedLat : undefined,
+        longitude: Number.isFinite(parsedLng) ? parsedLng : undefined,
         overseerName: overseerName.trim() || undefined,
         overseerTitle: overseerTitle.trim() || undefined,
         overseerPhone: overseerPhone.trim() || undefined,
@@ -365,19 +384,59 @@ export default function AdminLocationsManager() {
           "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950262133_rsnhfc.jpg",
       };
       saveLocationsContent([...currentAll, newLoc]);
-      setStatus({ type: "success", text: `Location "${name}" published to directory.` });
+      showToast(`Location "${name}" published to directory.`, "success");
+    }
+
+    // Automatically synchronize overseer into Leadership Directory
+    if (overseerName.trim()) {
+      const directory = getDirectoryContent();
+      const existingIdx = directory.findIndex(
+        (d) => d.name.toLowerCase() === overseerName.trim().toLowerCase()
+      );
+      const defaultPhoto = "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950262133_rsnhfc.jpg";
+      const resolvedPhoto = overseerPhotoUrl.trim() || defaultPhoto;
+
+      if (existingIdx >= 0) {
+        const updatedDir = [...directory];
+        updatedDir[existingIdx] = {
+          ...updatedDir[existingIdx],
+          office: overseerTitle.trim() || updatedDir[existingIdx].office,
+          country: country.trim() || updatedDir[existingIdx].country,
+          stateOrRegion: resolvedState.trim() || updatedDir[existingIdx].stateOrRegion,
+          phone: overseerPhone.trim() || updatedDir[existingIdx].phone,
+          email: overseerEmail.trim() || updatedDir[existingIdx].email,
+          portraitUrl: resolvedPhoto || updatedDir[existingIdx].portraitUrl,
+          isActive: true,
+        };
+        saveDirectoryContent(updatedDir);
+      } else {
+        const newOverseer: OverseerItem = {
+          id: `dir-${Date.now()}`,
+          name: overseerName.trim(),
+          office: overseerTitle.trim() || "State Coordinator",
+          category: "Regional",
+          country: country.trim(),
+          stateOrRegion: resolvedState.trim(),
+          phone: overseerPhone.trim() || phone.trim() || "+234 806 191 5797",
+          email: overseerEmail.trim() || email.trim() || "overseer@horemow.org",
+          officeAddress: address.trim(),
+          portraitUrl: resolvedPhoto,
+          bio: `Overseeing HOREMOW fellowship centers and regional coordination in ${resolvedState.trim()}, ${country.trim()}.`,
+          order: directory.length + 1,
+          isActive: true,
+        };
+        saveDirectoryContent([...directory, newOverseer]);
+      }
     }
 
     setIsModalOpen(false);
-    setTimeout(() => setStatus(null), 4000);
   };
 
   const handleDelete = (id: string, locName: string) => {
     if (window.confirm(`Are you sure you want to remove fellowship "${locName}"?`)) {
       const updated = getLocationsContent().filter((l) => l.id !== id);
       saveLocationsContent(updated);
-      setStatus({ type: "success", text: "Fellowship location removed." });
-      setTimeout(() => setStatus(null), 4000);
+      showToast("Fellowship location removed.", "success");
     }
   };
 
@@ -423,6 +482,33 @@ export default function AdminLocationsManager() {
         >
           Add Fellowship Location
         </Button>
+      </div>
+
+      {/* Interactive Map Preview Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe2 size={16} className="text-brand-blue" />
+            <h3 className="text-xs font-bold text-ink uppercase tracking-wider">
+              Worldwide Chapters Map Preview ({locations.length} Locations)
+            </h3>
+          </div>
+          <button
+            className="text-xs font-bold text-brand-blue hover:underline"
+            onClick={() => setShowMapPreview(!showMapPreview)}
+            type="button"
+          >
+            {showMapPreview ? "Collapse Map" : "Expand Map"}
+          </button>
+        </div>
+        {showMapPreview && (
+          <FellowshipMap
+            height="320px"
+            interactive={true}
+            locations={locations}
+            onSelectLocation={(loc) => openEditModal(loc)}
+          />
+        )}
       </div>
 
       {/* Search & Continent Filter Bar */}
@@ -486,16 +572,25 @@ export default function AdminLocationsManager() {
                 key={loc.id}
               >
                 <div className="flex items-start gap-4">
-                  {/* Overseer / Branch Portrait */}
+                  {/* Overseer / Branch Portrait or SVG Initials Fallback */}
                   <div className="size-16 sm:size-20 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 shadow-sm relative">
-                    <img
-                      alt={loc.overseerName || loc.name}
-                      className="size-full object-cover"
-                      src={
-                        loc.overseerPhotoUrl ||
-                        "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950262133_rsnhfc.jpg"
-                      }
-                    />
+                    {loc.overseerPhotoUrl ? (
+                      <img
+                        alt={loc.overseerName || loc.name}
+                        className="size-full object-cover"
+                        src={loc.overseerPhotoUrl}
+                      />
+                    ) : (
+                      <div className="grid size-full place-items-center bg-soft-blue text-brand-blue font-bold text-base">
+                        {(loc.overseerName || loc.name)
+                          .split(" ")
+                          .filter((w) => !["Pastor", "Brother", "Sister", "Evangelist", "Rev", "Dr"].includes(w))
+                          .map((w) => w[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase() || "H"}
+                      </div>
+                    )}
                     {loc.isHeadquarters && (
                       <span className="absolute bottom-0 inset-x-0 bg-brand-blue text-[9px] font-bold text-white text-center py-0.5">
                         HQ
@@ -513,6 +608,11 @@ export default function AdminLocationsManager() {
                       {loc.isHeadquarters && (
                         <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
                           Global Headquarters
+                        </span>
+                      )}
+                      {typeof loc.latitude === "number" && typeof loc.longitude === "number" && (
+                        <span className="rounded bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-mono">
+                          📍 {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
                         </span>
                       )}
                     </div>
@@ -758,6 +858,30 @@ export default function AdminLocationsManager() {
                   value={email}
                 />
               </div>
+
+              {/* Map Geographic Coordinates */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  fullWidth
+                  helperText="Decimal latitude for map pin placement (e.g. 9.0579)"
+                  label="Map Latitude (e.g. 9.0579)"
+                  onChange={(e) => setLatitude(e.target.value)}
+                  placeholder="e.g. 9.0579"
+                  size="small"
+                  type="text"
+                  value={latitude}
+                />
+                <TextField
+                  fullWidth
+                  helperText="Decimal longitude for map pin placement (e.g. 7.4951)"
+                  label="Map Longitude (e.g. 7.4951)"
+                  onChange={(e) => setLongitude(e.target.value)}
+                  placeholder="e.g. 7.4951"
+                  size="small"
+                  type="text"
+                  value={longitude}
+                />
+              </div>
             </div>
 
             {/* 3. Overseer Assignment & Image Upload */}
@@ -801,25 +925,29 @@ export default function AdminLocationsManager() {
                 />
               </div>
 
-              {/* Overseer Photo Upload */}
-              <div className="rounded-lg border border-dashed border-slate-300 p-3 bg-white">
-                <span className="text-xs font-bold text-ink mb-1.5 block">
-                  Overseer Portrait Photograph Upload
+              {/* Overseer Photo Dedicated File Select & Upload */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <span className="text-xs font-bold text-ink mb-1 block">
+                  Overseer Portrait Photograph (File Select & Upload)
                 </span>
-                <div className="grid gap-3 sm:grid-cols-12 items-center">
-                  <div className="sm:col-span-8">
-                    <TextField
-                      fullWidth
-                      label="Image URL or Cloudinary Link"
-                      onChange={(e) => setOverseerPhotoUrl(e.target.value)}
-                      placeholder="https://res.cloudinary.com/..."
-                      size="small"
-                      value={overseerPhotoUrl}
-                    />
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Select a portrait photo for the state overseer (PNG, JPG, WEBP).
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="size-14 rounded-full border-2 border-dashed border-slate-300 bg-white grid place-items-center overflow-hidden shrink-0 shadow-inner">
+                    {overseerPhotoUrl ? (
+                      <img
+                        alt="Overseer portrait"
+                        className="size-full object-cover"
+                        src={overseerPhotoUrl}
+                      />
+                    ) : (
+                      <User size={20} className="text-slate-400" />
+                    )}
                   </div>
-                  <div className="sm:col-span-4 flex items-center gap-2">
-                    <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-sm">
-                      <Upload size={14} /> Upload Portrait
+                  <div className="flex flex-1 flex-wrap items-center gap-2">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition">
+                      <Upload size={13} /> {overseerPhotoUrl ? "Change Photo File" : "Select Portrait File"}
                       <input
                         accept="image/*"
                         className="hidden"
@@ -828,11 +956,15 @@ export default function AdminLocationsManager() {
                       />
                     </label>
                     {overseerPhotoUrl && (
-                      <img
-                        alt="Overseer"
-                        className="size-10 rounded-full object-cover border border-slate-300"
-                        src={overseerPhotoUrl}
-                      />
+                      <Button
+                        color="error"
+                        onClick={() => setOverseerPhotoUrl("")}
+                        size="small"
+                        sx={{ textTransform: "none", fontSize: "11px" }}
+                        variant="text"
+                      >
+                        Remove
+                      </Button>
                     )}
                   </div>
                 </div>

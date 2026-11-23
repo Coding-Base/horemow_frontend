@@ -14,6 +14,7 @@ import {
   useDirectoryContent,
   type OverseerItem,
 } from "../lib/contentStore";
+import { showToast } from "../lib/soundToast";
 
 const categories = [
   { label: "All leaders", value: "ALL" },
@@ -68,8 +69,12 @@ export default function DirectoryPage() {
 
   const handleSendInquiry = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!inquiryEmail || !inquiryMessage) return;
+    if (!inquiryEmail || !inquiryMessage) {
+      showToast("Please provide your email and message.", "error");
+      return;
+    }
     setInquirySent(true);
+    showToast(`Your message has been sent to ${selectedLeader?.name || "the leadership office"}.`, "success");
   };
 
   const closeInquiry = () => {

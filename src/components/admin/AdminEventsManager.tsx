@@ -40,6 +40,7 @@ import {
 } from "../../lib/contentStore";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { showToast } from "../../lib/soundToast";
 import {
   fetchHomepageAnnouncement,
   isHomepageAnnouncementApiConfigured,
@@ -280,6 +281,7 @@ export default function AdminEventsManager() {
         return ev;
       });
       saveEventsContent(updated);
+      showToast(`Event "${title}" updated successfully!`, "success");
       setStatus({ type: "success", text: `Event "${title}" updated successfully.` });
     } else {
       const newEvent: MinistryEvent = {
@@ -297,6 +299,7 @@ export default function AdminEventsManager() {
         description: description.trim() || `${title} gathering.`,
       };
       saveEventsContent([newEvent, ...currentAll]);
+      showToast(`Event "${title}" added to calendar!`, "success");
       setStatus({ type: "success", text: `Event "${title}" added to calendar.` });
     }
 
@@ -308,6 +311,7 @@ export default function AdminEventsManager() {
     if (window.confirm(`Are you sure you want to remove event "${eventTitle}"?`)) {
       const updated = getEventsContent().filter((ev) => ev.id !== id);
       saveEventsContent(updated);
+      showToast(`Event "${eventTitle}" removed.`, "success");
       setStatus({ type: "success", text: "Event removed successfully." });
       setTimeout(() => setStatus(null), 4000);
     }

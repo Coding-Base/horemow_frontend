@@ -43,6 +43,7 @@ import {
 import type { BlogPost } from "../../data/content";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { showToast } from "../../lib/soundToast";
 
 const CATEGORIES = [
   "Faith & practice",
@@ -220,6 +221,7 @@ export default function AdminBlogManager() {
         return p;
       });
       saveBlogContent(updated);
+      showToast(`Article "${title}" updated successfully!`, "success");
       setStatus({ type: "success", text: `Article "${title}" updated successfully.` });
     } else {
       const newPost: BlogPost = {
@@ -247,6 +249,7 @@ export default function AdminBlogManager() {
         comments: [],
       };
       saveBlogContent([newPost, ...currentAll]);
+      showToast(`Article "${title}" published to CMS successfully!`, "success");
       setStatus({ type: "success", text: `Article "${title}" published to CMS successfully.` });
     }
 
@@ -258,6 +261,7 @@ export default function AdminBlogManager() {
     if (window.confirm(`Are you sure you want to permanently delete "${postTitle}"?`)) {
       const updated = getBlogContent().filter((p) => p.id !== postId && p.title !== postTitle);
       saveBlogContent(updated);
+      showToast("Article deleted successfully.", "success");
       setStatus({ type: "success", text: "Article deleted successfully." });
       setTimeout(() => setStatus(null), 4000);
     }

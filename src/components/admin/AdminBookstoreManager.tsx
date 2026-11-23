@@ -5,8 +5,6 @@ import {
   Trash2,
   Edit3,
   Search,
-  Check,
-  AlertCircle,
   Upload,
   Send,
   BookOpen,
@@ -14,9 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Loader2,
+  CheckCircle2,
+  ExternalLink,
+  FileDown,
+  X,
+  Eye,
 } from "lucide-react";
 import {
-  Alert,
   Button,
   TextField,
   MenuItem,
@@ -36,6 +39,9 @@ import {
 import type { Publication } from "../../data/content";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { showToast } from "../../lib/soundToast";
+import { uploadBookPdf } from "../../lib/publicationApi";
+import BookReaderModal from "../books/BookReaderModal";
 
 const BOOK_CATEGORIES = [
   "Holiness & Christian Living",
@@ -51,7 +57,6 @@ const ITEMS_PER_PAGE = 5;
 
 export default function AdminBookstoreManager() {
   const books = usePublicationsContent();
-  const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Search & Filter
   const [searchInput, setSearchInput] = useState("");
@@ -62,18 +67,24 @@ export default function AdminBookstoreManager() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [previewingBook, setPreviewingBook] = useState<Publication | null>(null);
 
   // Form Fields
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("Pastor Paul Rika");
   const [category, setCategory] = useState(BOOK_CATEGORIES[0]);
   const [language, setLanguage] = useState("English, French, Hausa");
-  const [format, setFormat] = useState("PDF & Paperback");
+  const [format, setFormat] = useState("PDF & Paperback (200+ Pages)");
   const [price, setPrice] = useState("Free Download / Ministry Gift");
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [telegramUrl, setTelegramUrl] = useState("");
+
+  // Upload States
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [pdfMeta, setPdfMeta] = useState<{ name?: string; size?: string; pages?: number } | null>(null);
 
   const filteredBooks = useMemo(() => {
     return books.filter((b) => {
@@ -108,6 +119,7 @@ export default function AdminBookstoreManager() {
     setCoverUrl("");
     setFileUrl("");
     setTelegramUrl("");
+    setPdfMeta(null);
     setIsModalOpen(true);
   };
 
@@ -123,26 +135,60 @@ export default function AdminBookstoreManager() {
     setCoverUrl(book.coverUrl || "");
     setFileUrl(book.fileUrl || "");
     setTelegramUrl(book.telegramUrl || "");
+    setPdfMeta(book.fileUrl ? { name: book.title + ".pdf" } : null);
     setIsModalOpen(true);
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsUploadingCover(true);
       try {
         const dataUrl = await fileToDataUrl(file);
         setCoverUrl(dataUrl);
+        showToast("Book cover uploaded successfully!", "success");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to load cover image";
-        setStatus({ type: "error", text: msg });
+        showToast(msg, "error");
+      } finally {
+        setIsUploadingCover(false);
       }
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPdf(true);
+    try {
+      const result = await uploadBookPdf(file);
+      setFileUrl(result.publicUrl);
+      const sizeMb = (result.fileSize / (1024 * 1024)).toFixed(1);
+      setPdfMeta({
+        name: result.fileName,
+        size: `${sizeMb} MB`,
+        pages: result.pageCount,
+      });
+
+      if (result.pageCount && result.pageCount > 0) {
+        setFormat(`PDF (${result.pageCount} Pages) & Paperback`);
+      }
+
+      showToast(`Book PDF "${result.fileName}" uploaded to Supabase Storage!`, "success");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload PDF";
+      showToast(msg, "error");
+    } finally {
+      setIsUploadingPdf(false);
+      e.target.value = "";
     }
   };
 
   const handleSaveBook = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
-      setStatus({ type: "error", text: "Please provide both book title and synopsis." });
+      showToast("Please provide both book title and synopsis.", "error");
       return;
     }
 
@@ -168,7 +214,7 @@ export default function AdminBookstoreManager() {
         return b;
       });
       savePublicationsContent(updated);
-      setStatus({ type: "success", text: `Book "${title}" updated successfully.` });
+      showToast(`Book "${title}" updated successfully!`, "success");
     } else {
       const newBook: Publication = {
         id: `pub-${Date.now()}`,
@@ -186,11 +232,10 @@ export default function AdminBookstoreManager() {
         telegramUrl: telegramUrl.trim() || "https://t.me/horemowbooks",
       };
       savePublicationsContent([newBook, ...currentAll]);
-      setStatus({ type: "success", text: `Book "${title}" added to catalog.` });
+      showToast(`Book "${title}" added to catalog!`, "success");
     }
 
     setIsModalOpen(false);
-    setTimeout(() => setStatus(null), 4000);
   };
 
   const handleDelete = (idOrTitle: string) => {
@@ -199,22 +244,12 @@ export default function AdminBookstoreManager() {
         (b) => b.id !== idOrTitle && b.title !== idOrTitle
       );
       savePublicationsContent(updated);
-      setStatus({ type: "success", text: "Book publication removed." });
-      setTimeout(() => setStatus(null), 4000);
+      showToast("Book deleted from bookstore catalog.", "success");
     }
   };
 
   return (
     <div className="space-y-6">
-      {status && (
-        <Alert
-          icon={status.type === "error" ? <AlertCircle size={18} /> : <Check size={18} />}
-          severity={status.type}
-        >
-          {status.text}
-        </Alert>
-      )}
-
       {/* Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
@@ -365,6 +400,15 @@ export default function AdminBookstoreManager() {
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <Button
+                    onClick={() => setPreviewingBook(book)}
+                    size="small"
+                    startIcon={<Eye size={14} />}
+                    sx={{ textTransform: "none", fontWeight: 700, color: "#1E7B34", borderColor: "#1E7B34" }}
+                    variant="outlined"
+                  >
+                    Read Online
+                  </Button>
                   <Button
                     onClick={() => openEditModal(book)}
                     size="small"
@@ -517,10 +561,19 @@ export default function AdminBookstoreManager() {
                 </div>
                 <div className="sm:col-span-4 flex items-center gap-2">
                   <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm">
-                    <Upload size={14} /> Upload Cover
+                    {isUploadingCover ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} /> Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={14} /> Upload Cover
+                      </>
+                    )}
                     <input
                       accept="image/*"
                       className="hidden"
+                      disabled={isUploadingCover}
                       onChange={handleCoverUpload}
                       type="file"
                     />
@@ -536,27 +589,94 @@ export default function AdminBookstoreManager() {
               </div>
             </div>
 
-            {/* Links Section */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <TextField
-                fullWidth
-                helperText="Direct download link to PDF or e-book reader"
-                label="Book File / PDF URL"
-                onChange={(e) => setFileUrl(e.target.value)}
-                placeholder="https://horemow.org/books/book.pdf"
-                size="small"
-                value={fileUrl}
-              />
-              <TextField
-                fullWidth
-                helperText="Telegram channel / book post link"
-                label="Telegram Book Link"
-                onChange={(e) => setTelegramUrl(e.target.value)}
-                placeholder="https://t.me/horemowbooks/..."
-                size="small"
-                value={telegramUrl}
-              />
+            {/* Book File / PDF Upload to Supabase Storage */}
+            <div className="rounded-lg border border-dashed border-slate-300 p-4 bg-slate-50/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <FileText className="text-brand-blue" size={15} /> Book File / PDF (Supabase Cloud Storage)
+                </span>
+                {fileUrl && (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                    <CheckCircle2 size={11} /> PDF Attached
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-12 items-center">
+                <div className="sm:col-span-8">
+                  <TextField
+                    fullWidth
+                    helperText="Public Supabase CDN or direct document URL"
+                    label="Book PDF URL"
+                    onChange={(e) => setFileUrl(e.target.value)}
+                    placeholder="https://carwmjftjgfwvjxgrxcz.supabase.co/storage/v1/object/public/publications/..."
+                    size="small"
+                    value={fileUrl}
+                  />
+                </div>
+                <div className="sm:col-span-4 flex flex-col gap-1.5">
+                  <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-brand-blue bg-brand-blue/10 px-3 py-2 text-xs font-bold text-brand-blue hover:bg-brand-blue hover:text-white shadow-sm transition">
+                    {isUploadingPdf ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} /> Uploading to Supabase...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={14} /> Upload Book PDF
+                      </>
+                    )}
+                    <input
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      disabled={isUploadingPdf}
+                      onChange={handlePdfUpload}
+                      type="file"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {fileUrl && (
+                <div className="mt-2.5 flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileDown size={14} className="text-brand-blue shrink-0" />
+                    <span className="truncate font-semibold">{pdfMeta?.name || "Attached Book Document"}</span>
+                    {pdfMeta?.size && <span className="text-[11px] text-slate-400 font-mono">({pdfMeta.size})</span>}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                    <a
+                      className="inline-flex items-center gap-1 font-bold text-brand-blue hover:underline"
+                      href={fileUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <ExternalLink size={12} /> Test View
+                    </a>
+                    <button
+                      className="text-slate-400 hover:text-red-500 transition"
+                      onClick={() => {
+                        setFileUrl("");
+                        setPdfMeta(null);
+                      }}
+                      title="Remove PDF"
+                      type="button"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            <TextField
+              fullWidth
+              helperText="Telegram channel / book post link (optional)"
+              label="Telegram Book Link"
+              onChange={(e) => setTelegramUrl(e.target.value)}
+              placeholder="https://t.me/horemowbooks/..."
+              size="small"
+              value={telegramUrl}
+            />
 
             <TextField
               fullWidth
@@ -593,6 +713,12 @@ export default function AdminBookstoreManager() {
           </DialogActions>
         </form>
       </Dialog>
+
+      <BookReaderModal
+        book={previewingBook}
+        isOpen={Boolean(previewingBook)}
+        onClose={() => setPreviewingBook(null)}
+      />
     </div>
   );
 }

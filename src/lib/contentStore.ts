@@ -297,86 +297,12 @@ export const DEFAULT_HOMEPAGE_ANNOUNCEMENT: HomepageAnnouncement = {
 /* -------------------------------------------------------------
  * 5. LOCATION TYPES & DEFAULTS
  * ------------------------------------------------------------- */
-export type FellowshipLocation = {
-  id: string;
-  name: string;
-  continent: "Africa" | "Asia" | "Europe" | "North America" | "South America" | "Oceania";
-  country: string;
-  stateOrArea: string;
-  address: string;
-  phone: string;
-  email: string;
-  overseerName?: string;
-  overseerTitle?: string;
-  overseerPhone?: string;
-  overseerEmail?: string;
-  overseerPhotoUrl?: string;
-  isHeadquarters?: boolean;
-};
+export type { FellowshipLocation } from "./locationTypes";
+import type { FellowshipLocation } from "./locationTypes";
+import { SEEDED_FELLOWSHIP_LOCATIONS } from "./defaultLocations";
 
-export const DEFAULT_LOCATIONS: FellowshipLocation[] = [
-  {
-    id: "loc-hq",
-    name: initialLocation.name,
-    continent: "Africa",
-    country: "Nigeria",
-    stateOrArea: "Federal Capital Territory (Abuja)",
-    address: initialLocation.address,
-    phone: initialLocation.phone,
-    email: initialLocation.email,
-    overseerName: "Pastor Paul Rika",
-    overseerTitle: "Founder & International Director",
-    overseerPhone: "+234 803 303 6211",
-    overseerEmail: "director@horemow.org",
-    overseerPhotoUrl: LEADERSHIP_IMAGES.pastorPaulRika,
-    isHeadquarters: true,
-  },
-  {
-    id: "loc-lagos",
-    name: "HOREMOW Lagos Regional Centre",
-    continent: "Africa",
-    country: "Nigeria",
-    stateOrArea: "Lagos",
-    address: "Ikeja / Ojodu Berger Fellowship Centre, Lagos",
-    phone: "+234 803 000 1234",
-    email: "lagos@horemow.org",
-    overseerName: "Pastor Samuel Adeleke",
-    overseerTitle: "Regional Overseer, Western Nigeria",
-    overseerPhone: "+234 802 334 1120",
-    overseerEmail: "lagos.coordinator@horemow.org",
-    overseerPhotoUrl: "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951657/FB_IMG_1794950207838_zqcvtc.jpg",
-  },
-  {
-    id: "loc-london",
-    name: "HOREMOW United Kingdom Fellowship",
-    continent: "Europe",
-    country: "United Kingdom",
-    stateOrArea: "Greater London",
-    address: "220 High Road, Tottenham, London N15 4BN, United Kingdom",
-    phone: "+44 20 7946 0912",
-    email: "uk.overseer@horemow.org",
-    overseerName: "Pastor James Sterling",
-    overseerTitle: "National Overseer, UK & Europe",
-    overseerPhone: "+44 20 7946 0912",
-    overseerEmail: "uk.overseer@horemow.org",
-    overseerPhotoUrl: "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951659/FB_IMG_1794950282554_fanl36.jpg",
-  },
-  {
-    id: "loc-usa",
-    name: "HOREMOW North America Mission",
-    continent: "North America",
-    country: "United States",
-    stateOrArea: "Texas",
-    address: "8400 North Central Expressway, Suite 400, Dallas, TX 75206, USA",
-    phone: "+1 (469) 555-0182",
-    email: "usa.overseer@horemow.org",
-    overseerName: "Pastor Michael Brooks",
-    overseerTitle: "National Overseer, United States & North America",
-    overseerPhone: "+1 (469) 555-0182",
-    overseerEmail: "usa.overseer@horemow.org",
-    overseerPhotoUrl: "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950249902_nvops6.jpg",
-  },
-];
+export const DEFAULT_LOCATIONS: FellowshipLocation[] = SEEDED_FELLOWSHIP_LOCATIONS;
+
 
 /* -------------------------------------------------------------
  * 6. GIVING PROJECTS & DEFAULTS
@@ -481,32 +407,21 @@ export const DEFAULT_CONTACT_DETAILS: ContactDetails = {
 };
 
 /* -------------------------------------------------------------
- * MASTER IN-MEMORY CMS STORE & EVENT BUS (NO BROWSER STORAGE)
+ * MASTER STORAGE SYSTEM & EVENT BUS (LOCALSTORAGE PERSISTENCE)
  * ------------------------------------------------------------- */
-const memoryStore: Record<string, string> = {};
+const STORAGE_PREFIX = "horemow_cms_";
 const CMS_UPDATE_EVENT = "horemow_cms_updated";
-
-// Automatically purge any previous legacy CMS keys from browser localStorage
-try {
-  if (typeof window !== "undefined" && window.localStorage) {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith("horemow_cms_")) {
-        keysToRemove.push(k);
-      }
-    }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-  }
-} catch {
-  // Ignore
-}
+const memoryFallbackStore: Record<string, string> = {};
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
-    const raw = memoryStore[key];
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    if (typeof window !== "undefined" && window.localStorage) {
+      const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
+      if (raw) return JSON.parse(raw) as T;
+    }
+    const memRaw = memoryFallbackStore[key];
+    if (memRaw) return JSON.parse(memRaw) as T;
+    return fallback;
   } catch {
     return fallback;
   }
@@ -514,10 +429,15 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 
 function saveToStorage<T>(key: string, data: T): void {
   try {
-    memoryStore[key] = JSON.stringify(data);
+    const serialized = JSON.stringify(data);
+    memoryFallbackStore[key] = serialized;
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(`${STORAGE_PREFIX}${key}`, serialized);
+    }
     window.dispatchEvent(new CustomEvent(CMS_UPDATE_EVENT, { detail: { key, data } }));
   } catch (e) {
-    console.error(`Failed to save ${key} to memory store`, e);
+    console.warn(`LocalStorage write issue for ${key}, saved to memoryFallbackStore:`, e);
+    window.dispatchEvent(new CustomEvent(CMS_UPDATE_EVENT, { detail: { key, data } }));
   }
 }
 
@@ -571,10 +491,39 @@ export const resetGalleryContent = () => {
   return CONFERENCE_GALLERY_IMAGES;
 };
 
-export const getPublicationsContent = () => loadFromStorage("publications", initialPublications);
+export const getPublicationsContent = (): Publication[] => {
+  const list = loadFromStorage<Publication[]>("publications", initialPublications);
+  return list.map((b) => {
+    let fileUrl = b.fileUrl;
+    if (fileUrl && fileUrl.startsWith("/media/")) {
+      fileUrl = `http://localhost:8000${fileUrl}`;
+    }
+    return { ...b, fileUrl };
+  });
+};
 export const savePublicationsContent = (d: Publication[]) => saveToStorage("publications", d);
 
-export const getLocationsContent = () => loadFromStorage("locations", DEFAULT_LOCATIONS);
+const VALID_PASTOR_RIKA_PHOTO = "https://res.cloudinary.com/dae0htmcz/image/upload/v1794987729/pastor_paul_rika_ynemhk.jpg";
+
+export const getLocationsContent = (): FellowshipLocation[] => {
+  const stored = loadFromStorage("locations", DEFAULT_LOCATIONS);
+  if (!Array.isArray(stored) || stored.length < 20) {
+    saveLocationsContent(DEFAULT_LOCATIONS);
+    return DEFAULT_LOCATIONS;
+  }
+  let modified = false;
+  const sanitized = stored.map((loc) => {
+    if (loc.overseerPhotoUrl && loc.overseerPhotoUrl.includes("h5oxu7")) {
+      modified = true;
+      return { ...loc, overseerPhotoUrl: VALID_PASTOR_RIKA_PHOTO };
+    }
+    return loc;
+  });
+  if (modified) {
+    saveLocationsContent(sanitized);
+  }
+  return sanitized;
+};
 export const saveLocationsContent = (d: FellowshipLocation[]) => saveToStorage("locations", d);
 
 export const getGivingContent = () => loadFromStorage("giving", DEFAULT_GIVING_PROJECTS);
@@ -772,6 +721,52 @@ export const DEFAULT_OVERSEERS: OverseerItem[] = [
 
 export const getDirectoryContent = () => loadFromStorage("directory", DEFAULT_OVERSEERS);
 export const saveDirectoryContent = (d: OverseerItem[]) => saveToStorage("directory", d);
+
+/* -------------------------------------------------------------
+ * 13B. ADS & PROMOTIONAL ANNOUNCEMENTS
+ * ------------------------------------------------------------- */
+export interface AdItem {
+  id: string;
+  title: string;
+  badge?: string;
+  description: string;
+  imageUrl?: string;
+  targetUrl: string;
+  ctaText: string;
+  placement: "modal" | "top_banner" | "both";
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const DEFAULT_ADS: AdItem[] = [
+  {
+    id: "ad-1",
+    title: "International Holiness Conference 2026",
+    badge: "Upcoming Global Event",
+    description: "Join tens of thousands of believers gathering in Abuja, Nigeria and streaming globally. Experience the undiluted truth of God's Word.",
+    imageUrl: "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950314285_qsrsmp.jpg",
+    targetUrl: "/events",
+    ctaText: "View Conference Schedule",
+    placement: "both",
+    isActive: true,
+    createdAt: "2026-11-01T00:00:00Z",
+  },
+  {
+    id: "ad-2",
+    title: "Free Literature & Bible Distribution",
+    badge: "Mission Outreach",
+    description: "Request free copies of Pastor Paul Rika's foundational books on holiness, restitution, and eternal life for your church or campus fellowship.",
+    imageUrl: "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950325051_s2ryt4.jpg",
+    targetUrl: "/bookstore",
+    ctaText: "Order Free Books",
+    placement: "top_banner",
+    isActive: true,
+    createdAt: "2026-11-05T00:00:00Z",
+  },
+];
+
+export const getAdsContent = () => loadFromStorage("ads", DEFAULT_ADS);
+export const saveAdsContent = (d: AdItem[]) => saveToStorage("ads", d);
 
 /* -------------------------------------------------------------
  * 14. TRANSACTIONS & DONATION LEDGER
@@ -997,6 +992,7 @@ export const useBlogContent = () => useCmsDomain("blog", getBlogContent);
 export const useBroadcastsContent = () => useCmsDomain("broadcasts", getBroadcastsContent);
 export const useContactContent = () => useCmsDomain("contact", getContactContent);
 export const useDirectoryContent = () => useCmsDomain("directory", getDirectoryContent);
+export const useAdsContent = () => useCmsDomain("ads", getAdsContent);
 export const useTransactionsContent = () => {
   const data = useCmsDomain("transactions", getTransactionsContent);
   useEffect(() => {

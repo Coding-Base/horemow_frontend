@@ -36,7 +36,7 @@ export default function AnalyticsTracker() {
       sendAnalyticsEvent({
         path: newPath,
         durationSeconds: 0,
-      });
+      }).catch(() => {});
     }
   }, [location.pathname]);
 
@@ -50,7 +50,7 @@ export default function AnalyticsTracker() {
           path: activePath,
           durationSeconds: elapsedSeconds,
           isExit: true,
-        });
+        }).catch(() => {});
       }
     };
 

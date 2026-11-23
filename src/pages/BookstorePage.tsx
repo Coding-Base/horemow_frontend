@@ -1,14 +1,17 @@
-import { ArrowUpRight, BookMarked, BookOpen, Search } from "lucide-react";
+import { ArrowUpRight, BookMarked, BookOpen, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import PageIntro from "../components/common/PageIntro";
 import SearchField from "../components/common/SearchField";
 import { usePublicationsContent, useContactContent } from "../lib/contentStore";
+import BookReaderModal from "../components/books/BookReaderModal";
+import type { Publication } from "../data/content";
 
 export default function BookstorePage() {
   const publications = usePublicationsContent();
   const contact = useContactContent();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
+  const [readingBook, setReadingBook] = useState<Publication | null>(null);
 
   const categories = ["All", ...new Set(publications.map((book) => book.category))];
 
@@ -134,26 +137,38 @@ export default function BookstorePage() {
                 </div>
 
                 <div className="border-t border-slate-100 p-4 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  {book.fileUrl && (
-                    <a
-                      className="font-bold text-brand-blue hover:underline flex items-center gap-1"
-                      href={book.fileUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <BookOpen size={13} /> Free PDF Download
-                    </a>
-                  )}
-                  {book.telegramUrl && (
-                    <a
-                      className="font-bold text-sky-600 hover:underline flex items-center gap-1 ml-auto"
-                      href={book.telegramUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Telegram Book Link <ArrowUpRight size={13} />
-                    </a>
-                  )}
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-blue px-3 py-1.5 font-bold text-white hover:bg-brand-blue/90 shadow-xs transition"
+                    onClick={() => setReadingBook(book)}
+                    type="button"
+                  >
+                    <BookOpen size={13} /> Read Online
+                  </button>
+
+                  <div className="flex items-center gap-3 ml-auto">
+                    {book.fileUrl && (
+                      <a
+                        className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 hover:bg-emerald-100 flex items-center gap-1.5 transition text-xs shadow-xs"
+                        download={`${book.title}.pdf`}
+                        href={book.fileUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                        title="Download official publication PDF"
+                      >
+                        <Download size={13} /> Download PDF
+                      </a>
+                    )}
+                    {book.telegramUrl && (
+                      <a
+                        className="font-bold text-sky-600 hover:underline flex items-center gap-1"
+                        href={book.telegramUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Telegram <ArrowUpRight size={13} />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}
@@ -168,6 +183,12 @@ export default function BookstorePage() {
           )}
         </div>
       </section>
+
+      <BookReaderModal
+        book={readingBook}
+        isOpen={Boolean(readingBook)}
+        onClose={() => setReadingBook(null)}
+      />
     </>
   );
 }

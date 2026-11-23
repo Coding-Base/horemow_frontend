@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
-  Alert,
   Button,
   Dialog,
   DialogTitle,
@@ -10,6 +9,7 @@ import {
 import {
   CheckCircle2,
   Edit2,
+  Image as ImageIcon,
   Loader2,
   Mail,
   MapPin,
@@ -18,15 +18,19 @@ import {
   Search,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import Eyebrow from "../common/Eyebrow";
 import SectionHeading from "../common/SectionHeading";
 import {
+  getLocationsContent,
   saveDirectoryContent,
+  saveLocationsContent,
   useDirectoryContent,
   type OverseerItem,
 } from "../../lib/contentStore";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { showToast } from "../../lib/soundToast";
 
 export default function AdminDirectoryManager() {
   const directory = useDirectoryContent();
@@ -34,7 +38,6 @@ export default function AdminDirectoryManager() {
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [editingItem, setEditingItem] = useState<OverseerItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   // Form State
   const [name, setName] = useState("");
@@ -48,6 +51,7 @@ export default function AdminDirectoryManager() {
   const [portraitUrl, setPortraitUrl] = useState("");
   const [bio, setBio] = useState("");
   const [isUploadingPortrait, setIsUploadingPortrait] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,14 +60,18 @@ export default function AdminDirectoryManager() {
       setIsUploadingPortrait(true);
       const url = await fileToDataUrl(file, "horemow_directory");
       setPortraitUrl(url);
-      setNotice("Portrait photo uploaded to Cloudinary successfully!");
-      setTimeout(() => setNotice(null), 4000);
+      showToast("Portrait photo uploaded successfully!", "success");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to upload image";
-      setNotice(msg);
+      showToast(msg, "error");
     } finally {
       setIsUploadingPortrait(false);
     }
+  };
+
+  const handleRemovePortrait = () => {
+    setPortraitUrl("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const filtered = directory.filter((item) => {
@@ -110,68 +118,110 @@ export default function AdminDirectoryManager() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !office) return;
-
-    if (editingItem) {
-      // Update
-      const updated = directory.map((d) =>
-        d.id === editingItem.id
-          ? {
-              ...d,
-              name,
-              office,
-              category,
-              country,
-              stateOrRegion,
-              phone,
-              email,
-              officeAddress,
-              portraitUrl: portraitUrl || d.portraitUrl,
-              bio,
-            }
-          : d
-      );
-      saveDirectoryContent(updated);
-      setNotice(`Updated record for ${name} successfully.`);
-    } else {
-      // Create
-      const newItem: OverseerItem = {
-        id: `dir-${Date.now()}`,
-        name,
-        office,
-        category,
-        country,
-        stateOrRegion,
-        phone,
-        email,
-        officeAddress,
-        portraitUrl:
-          portraitUrl ||
-          "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950262133_rsnhfc.jpg",
-        bio,
-        order: directory.length + 1,
-        isActive: true,
-      };
-      saveDirectoryContent([...directory, newItem]);
-      setNotice(`Created new overseer record for ${name}.`);
+    if (!name.trim() || !office.trim()) {
+      showToast("Please provide the leader's full name and office role.", "error");
+      return;
     }
 
-    setIsModalOpen(false);
-    setTimeout(() => setNotice(null), 4000);
+    try {
+      const defaultAvatar = "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951658/FB_IMG_1794950262133_rsnhfc.jpg";
+      const resolvedPortrait = portraitUrl.trim() || (editingItem ? editingItem.portraitUrl : defaultAvatar);
+
+      let updatedList: OverseerItem[];
+      if (editingItem) {
+        // Update
+        updatedList = directory.map((d) =>
+          d.id === editingItem.id
+            ? {
+                ...d,
+                name: name.trim(),
+                office: office.trim(),
+                category,
+                country: country.trim(),
+                stateOrRegion: stateOrRegion.trim(),
+                phone: phone.trim(),
+                email: email.trim(),
+                officeAddress: officeAddress.trim(),
+                portraitUrl: resolvedPortrait,
+                bio: bio.trim(),
+              }
+            : d
+        );
+        showToast(`Updated record for ${name} successfully!`, "success");
+      } else {
+        // Create
+        const newItem: OverseerItem = {
+          id: `dir-${Date.now()}`,
+          name: name.trim(),
+          office: office.trim(),
+          category,
+          country: country.trim(),
+          stateOrRegion: stateOrRegion.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          officeAddress: officeAddress.trim(),
+          portraitUrl: resolvedPortrait,
+          bio: bio.trim(),
+          order: directory.length + 1,
+          isActive: true,
+        };
+        updatedList = [...directory, newItem];
+        showToast(`Created new overseer record for ${name}!`, "success");
+      }
+
+      saveDirectoryContent(updatedList);
+
+      // Two-way sync: If this leader oversees a region/state, also update locations
+      if (stateOrRegion.trim()) {
+        const locations = getLocationsContent();
+        let locationChanged = false;
+        const updatedLocations = locations.map((loc) => {
+          if (
+            loc.stateOrArea?.toLowerCase().includes(stateOrRegion.toLowerCase()) ||
+            stateOrRegion.toLowerCase().includes(loc.stateOrArea?.toLowerCase() || "")
+          ) {
+            locationChanged = true;
+            return {
+              ...loc,
+              overseerName: name.trim(),
+              overseerTitle: office.trim(),
+              overseerPhone: phone.trim() || loc.overseerPhone,
+              overseerEmail: email.trim() || loc.overseerEmail,
+              overseerPhotoUrl: resolvedPortrait || loc.overseerPhotoUrl,
+            };
+          }
+          return loc;
+        });
+        if (locationChanged) {
+          saveLocationsContent(updatedLocations);
+        }
+      }
+
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save overseer details.";
+      showToast(msg, "error");
+    }
   };
 
   const handleDelete = (id: string, overseerName: string) => {
     if (confirm(`Are you sure you want to remove ${overseerName} from the directory?`)) {
       const updated = directory.filter((d) => d.id !== id);
       saveDirectoryContent(updated);
-      setNotice(`Removed ${overseerName} from directory.`);
-      setTimeout(() => setNotice(null), 3000);
+      showToast(`Removed ${overseerName} from leadership directory.`, "success");
     }
   };
 
   const handleToggleActive = (id: string) => {
+    const target = directory.find((d) => d.id === id);
     const updated = directory.map((d) => (d.id === id ? { ...d, isActive: !d.isActive } : d));
     saveDirectoryContent(updated);
+    if (target) {
+      showToast(
+        `${target.name} is now ${!target.isActive ? "published and visible" : "hidden (inactive)"}.`,
+        "info"
+      );
+    }
   };
 
   return (
@@ -193,12 +243,6 @@ export default function AdminDirectoryManager() {
           Add Overseer / Leader
         </Button>
       </div>
-
-      {notice && (
-        <Alert severity="success" icon={<CheckCircle2 size={16} />}>
-          {notice}
-        </Alert>
-      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -241,7 +285,7 @@ export default function AdminDirectoryManager() {
             <div className="flex items-start gap-4">
               <img
                 alt={item.name}
-                className="size-16 rounded-full object-cover border-2 border-brand-blue/20 shrink-0"
+                className="size-16 rounded-full object-cover border-2 border-brand-blue/20 shrink-0 bg-slate-100"
                 src={item.portraitUrl}
               />
               <div className="min-w-0 flex-1">
@@ -314,6 +358,14 @@ export default function AdminDirectoryManager() {
             <span className="text-lg font-bold text-ink">
               {editingItem ? `Edit Overseer: ${editingItem.name}` : "Add Overseer / Leader to Directory"}
             </span>
+            <button
+              aria-label="Close modal"
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              onClick={() => setIsModalOpen(false)}
+              type="button"
+            >
+              <X size={18} />
+            </button>
           </DialogTitle>
 
           <form className="mt-5 grid gap-4" onSubmit={handleSave}>
@@ -405,44 +457,80 @@ export default function AdminDirectoryManager() {
               value={officeAddress}
             />
 
-            {/* Leader Portrait Photograph Upload */}
-            <div className="rounded-lg border border-dashed border-slate-300 p-3.5 bg-slate-50/50">
-              <span className="text-xs font-bold text-ink mb-1.5 block">
-                Leader Portrait Photograph
+            {/* Dedicated File Select & Upload for Overseer Portrait (No Image URL text input) */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <span className="text-xs font-bold text-ink mb-1 block">
+                Leader Portrait Photograph (Select Image File)
               </span>
-              <div className="grid gap-3 sm:grid-cols-12 items-center">
-                <div className="sm:col-span-8">
-                  <TextField
-                    fullWidth
-                    label="Portrait Image URL or Cloudinary Link"
-                    onChange={(e) => setPortraitUrl(e.target.value)}
-                    placeholder="https://res.cloudinary.com/..."
-                    size="small"
-                    value={portraitUrl}
-                  />
-                </div>
-                <div className="sm:col-span-4 flex items-center gap-2">
-                  <label className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm ${isUploadingPortrait ? "opacity-60 cursor-not-allowed" : ""}`}>
-                    {isUploadingPortrait ? (
-                      <Loader2 size={14} className="animate-spin text-brand-blue" />
-                    ) : (
-                      <Upload size={14} />
-                    )}
-                    <span>{isUploadingPortrait ? "Uploading..." : "Upload Photo"}</span>
-                    <input
-                      accept="image/*"
-                      className="hidden"
-                      disabled={isUploadingPortrait}
-                      onChange={handlePortraitUpload}
-                      type="file"
-                    />
-                  </label>
-                  {portraitUrl && (
+              <p className="text-[11px] text-slate-500 mb-3">
+                Upload a professional portrait photo of the overseer (JPG, PNG, or WEBP, max 10MB).
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="relative size-24 shrink-0 rounded-2xl border-2 border-dashed border-slate-300 bg-white overflow-hidden grid place-items-center shadow-inner">
+                  {portraitUrl ? (
                     <img
-                      alt="Leader portrait preview"
-                      className="size-10 rounded-full object-cover border border-slate-200 shrink-0"
+                      alt="Overseer preview"
+                      className="size-full object-cover"
                       src={portraitUrl}
                     />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                      <ImageIcon size={28} />
+                      <span className="text-[10px] mt-1 font-semibold">No Image</span>
+                    </div>
+                  )}
+                  {isUploadingPortrait && (
+                    <div className="absolute inset-0 bg-black/50 grid place-items-center text-white">
+                      <Loader2 className="animate-spin" size={24} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2 w-full">
+                  <input
+                    accept="image/*"
+                    className="hidden"
+                    disabled={isUploadingPortrait}
+                    onChange={handlePortraitUpload}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      disabled={isUploadingPortrait}
+                      onClick={() => fileInputRef.current?.click()}
+                      size="small"
+                      startIcon={isUploadingPortrait ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
+                      variant="outlined"
+                    >
+                      {isUploadingPortrait
+                        ? "Uploading Portrait..."
+                        : portraitUrl
+                        ? "Select Different Image"
+                        : "Select Portrait File"}
+                    </Button>
+                    {portraitUrl && (
+                      <Button
+                        color="error"
+                        disabled={isUploadingPortrait}
+                        onClick={handleRemovePortrait}
+                        size="small"
+                        startIcon={<X size={14} />}
+                        variant="text"
+                      >
+                        Remove Photo
+                      </Button>
+                    )}
+                  </div>
+                  {portraitUrl ? (
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                      <CheckCircle2 size={13} /> Photo ready and linked to profile
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 block">
+                      Choose an image from your device to attach to this leader's profile.
+                    </span>
                   )}
                 </div>
               </div>

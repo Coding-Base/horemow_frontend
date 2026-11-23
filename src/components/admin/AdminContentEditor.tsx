@@ -12,6 +12,8 @@ import {
 } from "../../lib/contentStore";
 import { fileToDataUrl } from "../../lib/imageUpload";
 import HomeCardsEditor from "./HomeCardsEditor";
+import AdminAdsManager from "./AdminAdsManager";
+import { showToast } from "../../lib/soundToast";
 import type { ConferenceImage } from "../../data/mediaAssets";
 
 export default function AdminContentEditor() {
@@ -100,6 +102,7 @@ export default function AdminContentEditor() {
       (card) => !card.number.trim() || !card.label.trim() || !card.sub.trim(),
     );
     if (invalidStat) {
+      showToast("Complete the value, title, and supporting text for every statistic card before saving.", "error");
       setSavedStatus({
         type: "error",
         text: "Complete the value, title, and supporting text for every statistic card before saving.",
@@ -111,6 +114,7 @@ export default function AdminContentEditor() {
       (card) => !card.title.trim() || !card.url.trim(),
     );
     if (invalidGalleryCard) {
+      showToast("Every 3D gallery card needs a title and image before saving.", "error");
       setSavedStatus({
         type: "error",
         text: "Every 3D gallery card needs a title and image before saving.",
@@ -120,6 +124,7 @@ export default function AdminContentEditor() {
 
     saveHomepageContent(formData);
     saveGalleryContent(galleryCards);
+    showToast("Homepage content successfully saved and published!", "success");
     setSavedStatus({ type: "success", text: "Homepage content successfully saved and published!" });
     setTimeout(() => setSavedStatus(null), 4000);
   };
@@ -505,6 +510,11 @@ export default function AdminContentEditor() {
             }}
             stats={formData.stats}
           />
+        </section>
+
+        {/* 6. Promotional Ads & Announcements Management */}
+        <section>
+          <AdminAdsManager />
         </section>
 
         {/* Submit Actions */}

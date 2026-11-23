@@ -37,6 +37,10 @@ export default function SermonCard({
           <img
             alt={sermon.title}
             className="size-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src =
+                "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950314285_qsrsmp.jpg";
+            }}
             src={
               sermon.thumbnailUrl ||
               "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950314285_qsrsmp.jpg"
