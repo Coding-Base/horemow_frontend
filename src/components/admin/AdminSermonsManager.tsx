@@ -38,6 +38,7 @@ import {
 import { sermonCategories, type Sermon, type SermonCategory } from "../../data/content";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
+import { uploadSermonAudio } from "../../lib/sermonApi";
 import { showToast } from "../../lib/soundToast";
 
 const ITEMS_PER_PAGE = 5;
@@ -233,16 +234,22 @@ export default function AdminSermonsManager() {
         const detected = await detectMediaDuration(file);
         setDuration(detected);
 
-        // Upload audio file
-        const dataUrl = await fileToDataUrl(file, "horemow_audio");
-        setAudioUrl(dataUrl);
-        showToast(`Audio uploaded & duration auto-detected: ${detected}`, "success");
+        // Upload audio file to Supabase Cloud Storage
+        const uploadRes = await uploadSermonAudio(file);
+        setAudioUrl(uploadRes.publicUrl);
+        showToast(
+          uploadRes.storage === "supabase"
+            ? `Audio uploaded to Supabase Storage & duration detected: ${detected}`
+            : `Audio uploaded & duration detected: ${detected}`,
+          "success"
+        );
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Audio upload failed";
         showToast(msg, "error");
       } finally {
         setIsUploadingAudio(false);
         setIsDetectingDuration(false);
+        if (e.target) e.target.value = "";
       }
     }
   };
@@ -906,6 +913,15 @@ export default function AdminSermonsManager() {
                     >
                       {isUploadingAudio ? "Uploading Audio & Detecting Length..." : "Upload Audio File (Auto-detects Duration)"}
                     </Button>
+                    {audioUrl && (
+                      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Volume2 size={14} className="text-brand-blue shrink-0" />
+                          <span className="text-[11px] font-mono text-slate-600 truncate max-w-xs">{audioUrl}</span>
+                        </div>
+                        <audio controls className="h-7 w-full sm:w-56" src={audioUrl} />
+                      </div>
+                    )}
                   </div>
                 </div>
 

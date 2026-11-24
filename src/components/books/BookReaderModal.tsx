@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Dialog } from "@mui/material";
 import type { Publication } from "../../data/content";
-import PdfPageViewer from "./PdfPageViewer";
+import PdfPageViewer, { type PdfOutlineItem } from "./PdfPageViewer";
 
 interface BookReaderModalProps {
   book: Publication | null;
@@ -109,6 +109,32 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1);
   const [pdfTotalPages, setPdfTotalPages] = useState(1);
   const [pdfScale, setPdfScale] = useState(1.2);
+  const [pdfOutline, setPdfOutline] = useState<PdfOutlineItem[]>([]);
+  const [jumpPageInput, setJumpPageInput] = useState<string>("1");
+
+  // Keep jumpPageInput in sync with active page
+  useEffect(() => {
+    if (displayMode === "pdf") {
+      setJumpPageInput(String(pdfCurrentPage));
+    } else {
+      setJumpPageInput(String(currentPageIndex + 1));
+    }
+  }, [displayMode, pdfCurrentPage, currentPageIndex]);
+
+  const handleJumpSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const targetPage = parseInt(jumpPageInput, 10);
+    if (isNaN(targetPage)) return;
+    if (displayMode === "pdf") {
+      const clamped = Math.max(1, Math.min(pdfTotalPages, targetPage));
+      setPdfCurrentPage(clamped);
+      setJumpPageInput(String(clamped));
+    } else {
+      const clamped = Math.max(1, Math.min(allPages.length, targetPage));
+      setCurrentPageIndex(clamped - 1);
+      setJumpPageInput(String(clamped));
+    }
+  };
 
   // Compile chapters and flat page list for Text Mode
   const chapters = useMemo(() => {
@@ -135,6 +161,8 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
     setCurrentPageIndex(0);
     setPdfCurrentPage(1);
     setPdfScale(1.2);
+    setPdfOutline([]);
+    setJumpPageInput("1");
     // If book has a real PDF URL, default directly to real PDF page-by-page reader
     if (book?.fileUrl) {
       setDisplayMode("pdf");
@@ -210,17 +238,17 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
         {/* Top Control Bar */}
         <header className={`flex h-14 shrink-0 items-center justify-between border-b px-4 sm:px-6 backdrop-blur-md z-30 ${themeClasses}`}>
           <div className="flex items-center gap-3 min-w-0">
-            {displayMode === "reader" && (
-              <button
-                aria-label="Table of contents"
-                className="grid size-9 place-items-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition"
-                onClick={() => setIsTocOpen(!isTocOpen)}
-                title="Table of Contents"
-                type="button"
-              >
-                <List size={18} />
-              </button>
-            )}
+            <button
+              aria-label="Table of contents and chapters"
+              className={`grid size-9 place-items-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition ${
+                isTocOpen ? "bg-black/10 dark:bg-white/15 text-brand-blue" : ""
+              }`}
+              onClick={() => setIsTocOpen(!isTocOpen)}
+              title={displayMode === "pdf" ? "Chapters & Jump to Page" : "Table of Contents"}
+              type="button"
+            >
+              <List size={18} />
+            </button>
             <div className="min-w-0">
               <h2 className="font-serif font-bold text-xs sm:text-sm truncate">
                 {book.title}
@@ -379,9 +407,9 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
 
         {/* Reader Workspace */}
         <div className="relative flex flex-1 overflow-hidden">
-          {/* Table of Contents Drawer (Text Mode) */}
+          {/* Table of Contents / Chapter Navigation Drawer */}
           <AnimatePresence>
-            {isTocOpen && displayMode === "reader" && (
+            {isTocOpen && (
               <motion.aside
                 animate={{ x: 0 }}
                 className={`absolute inset-y-0 left-0 z-40 w-72 sm:w-80 border-r shadow-2xl overflow-y-auto p-5 ${themeClasses}`}
@@ -390,7 +418,9 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
                 transition={{ duration: 0.25 }}
               >
                 <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10 mb-4">
-                  <h3 className="font-serif font-bold text-sm">Table of Contents</h3>
+                  <h3 className="font-serif font-bold text-sm">
+                    {displayMode === "pdf" ? "Jump to Page & Chapters" : "Table of Contents"}
+                  </h3>
                   <button
                     className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
                     onClick={() => setIsTocOpen(false)}
@@ -400,33 +430,136 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  {chapters.map((ch, chIdx) => {
-                    const chapterStartIdx = allPages.findIndex((p) => p.chapterTitle === ch.title);
-                    const isActive = allPages[currentPageIndex]?.chapterTitle === ch.title;
+                {/* Direct Jump to Page Form */}
+                <form
+                  className="mb-5 rounded-xl border border-black/10 dark:border-white/10 p-3 bg-black/5 dark:bg-white/5"
+                  onSubmit={(e) => {
+                    handleJumpSubmit(e);
+                    setIsTocOpen(false);
+                  }}
+                >
+                  <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 opacity-70">
+                    Jump to Page Number
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="w-full rounded-lg border border-black/20 dark:border-white/20 bg-white/90 dark:bg-black/40 px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                      max={displayMode === "pdf" ? Math.max(1, pdfTotalPages) : allPages.length}
+                      min={1}
+                      onChange={(e) => setJumpPageInput(e.target.value)}
+                      placeholder={`1 - ${displayMode === "pdf" ? pdfTotalPages : allPages.length}`}
+                      type="number"
+                      value={jumpPageInput}
+                    />
+                    <button
+                      className="shrink-0 rounded-lg bg-brand-blue hover:bg-blue-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition"
+                      type="submit"
+                    >
+                      Go
+                    </button>
+                  </div>
+                </form>
 
-                    return (
-                      <button
-                        className={`w-full text-left p-3 rounded-xl transition text-xs font-medium flex items-center justify-between ${
-                          isActive
-                            ? "bg-brand-blue text-white shadow font-bold"
-                            : "hover:bg-black/5 dark:hover:bg-white/5 opacity-85"
-                        }`}
-                        key={chIdx}
-                        onClick={() => {
-                          if (chapterStartIdx >= 0) setCurrentPageIndex(chapterStartIdx);
-                          setIsTocOpen(false);
-                        }}
-                        type="button"
-                      >
-                        <span className="line-clamp-2">{ch.title}</span>
-                        <span className="text-[10px] opacity-70 ml-2 shrink-0">
-                          {ch.pages.length} {ch.pages.length === 1 ? "page" : "pages"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* PDF Outline or Section Navigation */}
+                {displayMode === "pdf" ? (
+                  <div className="space-y-3">
+                    {pdfOutline.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-2">
+                          Book Chapters ({pdfOutline.length})
+                        </div>
+                        {pdfOutline.map((item, idx) => {
+                          const isActive = pdfCurrentPage === item.pageNumber;
+                          return (
+                            <button
+                              className={`w-full text-left p-2.5 rounded-lg transition text-xs flex items-center justify-between ${
+                                isActive
+                                  ? "bg-brand-blue text-white font-bold shadow"
+                                  : "hover:bg-black/5 dark:hover:bg-white/5 opacity-85"
+                              }`}
+                              key={idx}
+                              onClick={() => {
+                                setPdfCurrentPage(item.pageNumber);
+                                setIsTocOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="line-clamp-2 pr-2">{item.title}</span>
+                              <span className="text-[10px] opacity-70 shrink-0 font-mono">
+                                p. {item.pageNumber}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                          Quick Page Sections ({pdfTotalPages} Pages)
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Array.from(
+                            { length: Math.ceil(Math.max(1, pdfTotalPages) / 25) },
+                            (_, i) => {
+                              const start = i * 25 + 1;
+                              const end = Math.min((i + 1) * 25, pdfTotalPages);
+                              const isCurrent = pdfCurrentPage >= start && pdfCurrentPage <= end;
+                              return (
+                                <button
+                                  className={`p-2 rounded-lg text-left text-xs transition border ${
+                                    isCurrent
+                                      ? "border-brand-blue bg-brand-blue/15 font-bold text-brand-blue"
+                                      : "border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 opacity-80"
+                                  }`}
+                                  key={i}
+                                  onClick={() => {
+                                    setPdfCurrentPage(start);
+                                    setIsTocOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <div className="text-[11px] font-bold">Pages {start}-{end}</div>
+                                  <div className="text-[9px] opacity-60">Go to p. {start}</div>
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-2">
+                      Chapters ({chapters.length})
+                    </div>
+                    {chapters.map((ch, chIdx) => {
+                      const chapterStartIdx = allPages.findIndex((p) => p.chapterTitle === ch.title);
+                      const isActive = allPages[currentPageIndex]?.chapterTitle === ch.title;
+
+                      return (
+                        <button
+                          className={`w-full text-left p-3 rounded-xl transition text-xs font-medium flex items-center justify-between ${
+                            isActive
+                              ? "bg-brand-blue text-white shadow font-bold"
+                              : "hover:bg-black/5 dark:hover:bg-white/5 opacity-85"
+                          }`}
+                          key={chIdx}
+                          onClick={() => {
+                            if (chapterStartIdx >= 0) setCurrentPageIndex(chapterStartIdx);
+                            setIsTocOpen(false);
+                          }}
+                          type="button"
+                        >
+                          <span className="line-clamp-2">{ch.title}</span>
+                          <span className="text-[10px] opacity-70 ml-2 shrink-0">
+                            {ch.pages.length} {ch.pages.length === 1 ? "page" : "pages"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="mt-6 pt-4 border-t border-black/10 dark:border-white/10 text-xs space-y-2 text-slate-500">
                   <div className="font-bold text-ink">HOREMOW Publishing Division</div>
@@ -444,6 +577,7 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
               <div className="relative w-full max-w-4xl flex-1 flex flex-col items-center justify-center">
                 <PdfPageViewer
                   currentPage={pdfCurrentPage}
+                  onOutlineLoaded={setPdfOutline}
                   onSwitchToTextMode={() => setDisplayMode("reader")}
                   onTotalPagesLoaded={(total) => setPdfTotalPages(Math.max(1, total))}
                   pdfUrl={book.fileUrl}
@@ -540,23 +674,35 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
         </div>
 
         {/* Bottom Page Scrubber & Status Bar */}
-        <footer className={`h-12 shrink-0 border-t flex items-center justify-between px-4 sm:px-8 text-xs z-30 ${themeClasses}`}>
-          <div className="flex items-center gap-2 text-[11px] font-bold opacity-75">
-            {displayMode === "pdf" ? (
-              <>
-                <span>Page {pdfCurrentPage} of {pdfTotalPages}</span>
-                <span>({progressPct}% read)</span>
-              </>
-            ) : (
-              <>
-                <span>Page {currentPageIndex + 1} of {allPages.length}</span>
-                <span>({progressPct}% completed)</span>
-              </>
-            )}
+        <footer className={`h-12 shrink-0 border-t flex items-center justify-between px-3 sm:px-6 text-xs z-30 ${themeClasses}`}>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] font-bold">
+            <span className="opacity-75">Page</span>
+            <input
+              aria-label="Direct page jump input"
+              className="w-12 sm:w-14 text-center rounded border border-black/20 dark:border-white/20 bg-white/80 dark:bg-black/30 py-0.5 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-brand-blue"
+              max={displayMode === "pdf" ? Math.max(1, pdfTotalPages) : allPages.length}
+              min={1}
+              onBlur={() => handleJumpSubmit()}
+              onChange={(e) => setJumpPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleJumpSubmit();
+                }
+              }}
+              title="Type page and press Enter"
+              type="number"
+              value={jumpPageInput}
+            />
+            <span className="opacity-75">
+              of {displayMode === "pdf" ? pdfTotalPages : allPages.length}
+            </span>
+            <span className="text-[10px] opacity-60 hidden md:inline">
+              ({progressPct}% {displayMode === "pdf" ? "read" : "completed"})
+            </span>
           </div>
 
           {/* Reading Scrubber Slider */}
-          <div className="flex items-center gap-3 w-1/3 max-w-xs">
+          <div className="flex items-center gap-3 w-1/4 max-w-xs">
             {displayMode === "pdf" ? (
               <input
                 aria-label="PDF page scrubber"
@@ -580,7 +726,7 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {displayMode === "pdf" ? (
               <>
                 <button
@@ -588,7 +734,14 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
                   onClick={() => setPdfCurrentPage(1)}
                   type="button"
                 >
-                  First Page
+                  First
+                </button>
+                <button
+                  className="text-[11px] font-bold text-brand-blue hover:underline hidden sm:inline"
+                  onClick={() => setPdfCurrentPage(pdfTotalPages)}
+                  type="button"
+                >
+                  Last
                 </button>
                 {book.fileUrl && (
                   <a
@@ -602,13 +755,22 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
                 )}
               </>
             ) : (
-              <button
-                className="text-[11px] font-bold text-brand-blue hover:underline hidden sm:inline"
-                onClick={() => setCurrentPageIndex(0)}
-                type="button"
-              >
-                Start Over
-              </button>
+              <>
+                <button
+                  className="text-[11px] font-bold text-brand-blue hover:underline hidden sm:inline"
+                  onClick={() => setCurrentPageIndex(0)}
+                  type="button"
+                >
+                  First
+                </button>
+                <button
+                  className="text-[11px] font-bold text-brand-blue hover:underline hidden sm:inline"
+                  onClick={() => setCurrentPageIndex(allPages.length - 1)}
+                  type="button"
+                >
+                  Last
+                </button>
+              </>
             )}
           </div>
         </footer>

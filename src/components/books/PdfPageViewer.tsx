@@ -7,6 +7,11 @@ if (typeof window !== "undefined" && "GlobalWorkerOptions" in pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 }
 
+export interface PdfOutlineItem {
+  title: string;
+  pageNumber: number;
+}
+
 interface PdfPageViewerProps {
   pdfUrl: string;
   currentPage: number;
@@ -14,6 +19,7 @@ interface PdfPageViewerProps {
   onTotalPagesLoaded: (totalPages: number) => void;
   onPageRendered?: () => void;
   onSwitchToTextMode?: () => void;
+  onOutlineLoaded?: (outline: PdfOutlineItem[]) => void;
 }
 
 export default function PdfPageViewer({
@@ -23,6 +29,7 @@ export default function PdfPageViewer({
   onTotalPagesLoaded,
   onPageRendered,
   onSwitchToTextMode,
+  onOutlineLoaded,
 }: PdfPageViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -31,7 +38,17 @@ export default function PdfPageViewer({
   const [error, setError] = useState<string | null>(null);
   const renderTaskRef = useRef<any>(null);
 
-  // Load PDF Document
+  // Keep callback refs stable across renders
+  const onTotalPagesLoadedRef = useRef(onTotalPagesLoaded);
+  onTotalPagesLoadedRef.current = onTotalPagesLoaded;
+
+  const onPageRenderedRef = useRef(onPageRendered);
+  onPageRenderedRef.current = onPageRendered;
+
+  const onOutlineLoadedRef = useRef(onOutlineLoaded);
+  onOutlineLoadedRef.current = onOutlineLoaded;
+
+  // Load PDF Document ONCE per pdfUrl
   useEffect(() => {
     let isCancelled = false;
     setIsLoadingDoc(true);
@@ -47,8 +64,41 @@ export default function PdfPageViewer({
       .then((loadedDoc) => {
         if (!isCancelled) {
           setPdfDoc(loadedDoc);
-          onTotalPagesLoaded(loadedDoc.numPages);
+          if (onTotalPagesLoadedRef.current) {
+            onTotalPagesLoadedRef.current(loadedDoc.numPages);
+          }
           setIsLoadingDoc(false);
+
+          // Extract PDF document bookmarks/outline if available
+          loadedDoc
+            .getOutline()
+            .then(async (rawOutline) => {
+              if (rawOutline && Array.isArray(rawOutline) && rawOutline.length > 0) {
+                const parsed: PdfOutlineItem[] = [];
+                for (const item of rawOutline) {
+                  let destPage = 1;
+                  if (item.dest) {
+                    try {
+                      let dest: any = item.dest;
+                      if (typeof dest === "string") {
+                        dest = await loadedDoc.getDestination(dest);
+                      }
+                      if (dest && Array.isArray(dest) && dest[0]) {
+                        const pageIdx = await loadedDoc.getPageIndex(dest[0]);
+                        destPage = pageIdx + 1;
+                      }
+                    } catch {
+                      // Fallback
+                    }
+                  }
+                  parsed.push({ title: item.title, pageNumber: destPage });
+                }
+                if (onOutlineLoadedRef.current && parsed.length > 0) {
+                  onOutlineLoadedRef.current(parsed);
+                }
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch((err: unknown) => {
@@ -61,28 +111,40 @@ export default function PdfPageViewer({
 
     return () => {
       isCancelled = true;
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {
+          // Ignore
+        }
+        renderTaskRef.current = null;
+      }
+      setPdfDoc(null);
       try {
         loadingTask.destroy();
       } catch {
         // Ignore
       }
     };
-  }, [pdfUrl, onTotalPagesLoaded]);
+  }, [pdfUrl]);
 
   // Render Page to Canvas
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return;
+    // Guard against destroyed or invalid worker transport
+    if ((pdfDoc as any).destroyed || !(pdfDoc as any)._transport) return;
 
     let isCancelled = false;
     setIsRenderingPage(true);
 
-    // Cancel prior render task if still active
+    // Cancel prior render task safely
     if (renderTaskRef.current) {
       try {
         renderTaskRef.current.cancel();
       } catch {
         // Ignore
       }
+      renderTaskRef.current = null;
     }
 
     const safePageNum = Math.min(Math.max(1, currentPage), pdfDoc.numPages);
@@ -91,6 +153,7 @@ export default function PdfPageViewer({
       .getPage(safePageNum)
       .then((page) => {
         if (isCancelled || !canvasRef.current) return;
+        if ((pdfDoc as any).destroyed || !(pdfDoc as any)._transport) return;
 
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
@@ -115,13 +178,16 @@ export default function PdfPageViewer({
         return task.promise.then(() => {
           if (!isCancelled) {
             setIsRenderingPage(false);
-            if (onPageRendered) onPageRendered();
+            if (onPageRenderedRef.current) onPageRenderedRef.current();
           }
         });
       })
       .catch((err: unknown) => {
-        if (!isCancelled && (err as any)?.name !== "RenderingCancelledException") {
+        if (!isCancelled) {
           setIsRenderingPage(false);
+          if ((err as any)?.name !== "RenderingCancelledException") {
+            console.warn("PDF getPage/render note:", err);
+          }
         }
       });
 
@@ -133,9 +199,10 @@ export default function PdfPageViewer({
         } catch {
           // Ignore
         }
+        renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, scale, onPageRendered]);
+  }, [pdfDoc, currentPage, scale]);
 
   if (error) {
     return (
@@ -184,3 +251,4 @@ export default function PdfPageViewer({
     </div>
   );
 }
+
