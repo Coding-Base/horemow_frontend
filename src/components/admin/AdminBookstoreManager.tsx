@@ -40,7 +40,12 @@ import type { Publication } from "../../data/content";
 import { useDebounce } from "../../lib/useDebounce";
 import { fileToDataUrl } from "../../lib/imageUpload";
 import { showToast } from "../../lib/soundToast";
-import { uploadBookPdf } from "../../lib/publicationApi";
+import {
+  uploadBookPdf,
+  createPublicationApi,
+  updatePublicationApi,
+  deletePublicationApi,
+} from "../../lib/publicationApi";
 import BookReaderModal from "../books/BookReaderModal";
 
 const BOOK_CATEGORIES = [
@@ -185,61 +190,102 @@ export default function AdminBookstoreManager() {
     }
   };
 
-  const handleSaveBook = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
       showToast("Please provide both book title and synopsis.", "error");
       return;
     }
 
+    setIsSaving(true);
     const currentAll = getPublicationsContent();
 
-    if (editingBookId) {
-      const updated = currentAll.map((b) => {
-        if (b.id === editingBookId || b.title === editingBookId) {
-          return {
-            ...b,
-            title: title.trim(),
-            author: author.trim(),
-            category,
-            language: language.trim(),
-            format: format.trim(),
-            price: price.trim(),
-            description: description.trim(),
-            coverUrl: coverUrl.trim() || b.coverUrl,
-            fileUrl: fileUrl.trim() || b.fileUrl,
-            telegramUrl: telegramUrl.trim() || b.telegramUrl,
-          };
-        }
-        return b;
-      });
-      savePublicationsContent(updated);
-      showToast(`Book "${title}" updated successfully!`, "success");
-    } else {
-      const newBook: Publication = {
-        id: `pub-${Date.now()}`,
-        title: title.trim(),
-        author: author.trim(),
-        category,
-        language: language.trim(),
-        format: format.trim(),
-        price: price.trim(),
-        description: description.trim(),
-        coverUrl:
-          coverUrl.trim() ||
-          "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950325051_s2ryt4.jpg",
-        fileUrl: fileUrl.trim() || "https://horemow.org/books/sample.pdf",
-        telegramUrl: telegramUrl.trim() || "https://t.me/horemowbooks",
-      };
-      savePublicationsContent([newBook, ...currentAll]);
-      showToast(`Book "${title}" added to catalog!`, "success");
-    }
+    try {
+      if (editingBookId) {
+        const payload: Partial<Publication> = {
+          title: title.trim(),
+          author: author.trim(),
+          category,
+          language: language.trim(),
+          format: format.trim(),
+          price: price.trim(),
+          description: description.trim(),
+          coverUrl: coverUrl.trim(),
+          fileUrl: fileUrl.trim(),
+          telegramUrl: telegramUrl.trim(),
+        };
 
-    setIsModalOpen(false);
+        try {
+          await updatePublicationApi(editingBookId, payload);
+        } catch (apiErr) {
+          console.warn("Backend update failed, updating local state:", apiErr);
+        }
+
+        const updated = currentAll.map((b) => {
+          if (b.id === editingBookId || b.title === editingBookId) {
+            return {
+              ...b,
+              ...payload,
+              coverUrl: payload.coverUrl || b.coverUrl,
+              fileUrl: payload.fileUrl || b.fileUrl,
+              telegramUrl: payload.telegramUrl || b.telegramUrl,
+            };
+          }
+          return b;
+        });
+        savePublicationsContent(updated);
+        showToast(`Book "${title}" updated successfully!`, "success");
+      } else {
+        const payload: Partial<Publication> = {
+          title: title.trim(),
+          author: author.trim(),
+          category,
+          language: language.trim(),
+          format: format.trim(),
+          price: price.trim(),
+          description: description.trim(),
+          coverUrl:
+            coverUrl.trim() ||
+            "https://res.cloudinary.com/dae0htmcz/image/upload/v1794951665/FB_IMG_1794950325051_s2ryt4.jpg",
+          fileUrl: fileUrl.trim() || "https://horemow.org/books/sample.pdf",
+          telegramUrl: telegramUrl.trim() || "https://t.me/horemowbooks",
+        };
+
+        let newBook: Publication = {
+          id: `pub-${Date.now()}`,
+          ...payload,
+        } as Publication;
+
+        try {
+          const apiCreated = await createPublicationApi(payload);
+          if (apiCreated?.id) {
+            newBook = apiCreated;
+          }
+        } catch (apiErr) {
+          console.warn("Backend creation failed, saving to local cache:", apiErr);
+        }
+
+        savePublicationsContent([newBook, ...currentAll]);
+        showToast(`Book "${title}" published and added to catalog!`, "success");
+      }
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save publication";
+      showToast(msg, "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = (idOrTitle: string) => {
+  const handleDelete = async (idOrTitle: string) => {
     if (window.confirm(`Are you sure you want to remove "${idOrTitle}" from the bookstore?`)) {
+      try {
+        await deletePublicationApi(idOrTitle);
+      } catch (err) {
+        console.warn("Backend delete error:", err);
+      }
       const updated = getPublicationsContent().filter(
         (b) => b.id !== idOrTitle && b.title !== idOrTitle
       );
@@ -696,6 +742,7 @@ export default function AdminBookstoreManager() {
               Cancel
             </Button>
             <Button
+              disabled={isSaving}
               sx={{
                 backgroundColor: "#1A4B8C",
                 color: "#ffffff",
@@ -708,7 +755,7 @@ export default function AdminBookstoreManager() {
               type="submit"
               variant="contained"
             >
-              {editingBookId ? "Save Book Changes" : "Publish Book"}
+              {isSaving ? "Saving..." : editingBookId ? "Save Book Changes" : "Publish Book"}
             </Button>
           </DialogActions>
         </form>

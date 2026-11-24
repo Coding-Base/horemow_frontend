@@ -26,7 +26,6 @@ import {
   Printer,
   Radio,
   ShieldCheck,
-  Wallet,
   X,
 } from "lucide-react";
 import Eyebrow from "../components/common/Eyebrow";
@@ -37,7 +36,7 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1"
 ).replace(/\/$/, "");
 
-type PaymentProvider = "PAYSTACK" | "PAYPAL";
+type PaymentProvider = "PAYSTACK" | "FLUTTERWAVE" | "PAYPAL";
 
 type CheckoutResponse = {
   success?: boolean;
@@ -71,6 +70,18 @@ function isProviderCheckoutUrl(value: string, provider: PaymentProvider) {
       return (
         host === "paystack.com" ||
         host.endsWith(".paystack.com") ||
+        host === "localhost" ||
+        host === "127.0.0.1"
+      );
+    }
+    if (provider === "FLUTTERWAVE") {
+      return (
+        host === "flutterwave.com" ||
+        host.endsWith(".flutterwave.com") ||
+        host === "dev-flutterwave.com" ||
+        host.endsWith(".dev-flutterwave.com") ||
+        host === "ravepay.co" ||
+        host.endsWith(".ravepay.co") ||
         host === "localhost" ||
         host === "127.0.0.1"
       );
@@ -117,27 +128,29 @@ export default function GivePage() {
     const params = new URLSearchParams(window.location.search);
     const isCancelled = params.get("cancelled") === "true";
     const isVerified = params.get("verified") === "true";
-    const ref = params.get("reference") || params.get("trxref") || params.get("token");
+    const ref = params.get("reference") || params.get("tx_ref") || params.get("trxref") || params.get("token");
+    const flwTxId = params.get("transaction_id");
     const prov = (params.get("provider") || "PAYSTACK").toUpperCase() as PaymentProvider;
 
     if (isCancelled) {
       setReturnNotice({
         type: "warning",
         title: "Checkout Cancelled",
-        message: "You cancelled the checkout session on PayPal / Paystack. No offering was debited from your card or account.",
+        message: "You cancelled the payment session. No offering was debited from your card or account.",
       });
       window.history.replaceState({}, document.title, window.location.pathname);
       window.scrollTo({ top: 120, behavior: "smooth" });
       return;
     }
 
-    if (isVerified || ref) {
+    if (isVerified || ref || flwTxId) {
       setIsVerifying(true);
       fetch(`${API_BASE_URL}/donations/verify/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reference: ref || "",
+          transaction_id: flwTxId || "",
           provider: prov,
         }),
       })
@@ -164,7 +177,7 @@ export default function GivePage() {
                 donor_name: data.data.donor_name || donorName || "Anonymous Donor",
                 donor_email: data.data.donor_email || donorEmail,
                 donor_phone: donorPhone || undefined,
-                provider: (prov === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "PAYPAL",
+                provider: (prov === "FLUTTERWAVE" ? "FLUTTERWAVE" : prov === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "FLUTTERWAVE" | "PAYPAL",
                 status: "SUCCESSFUL",
                 created_at: data.data.completed_at || new Date().toISOString(),
                 completed_at: data.data.completed_at || new Date().toISOString(),
@@ -402,11 +415,11 @@ export default function GivePage() {
                         Icon: CreditCard,
                       },
                       {
-                        id: "PAYPAL",
-                        title: "PayPal",
-                        description: "PayPal balance & cards (processes in USD $, EUR €, GBP £)",
-                        badge: "USD / EUR / GBP",
-                        Icon: Wallet,
+                        id: "FLUTTERWAVE",
+                        title: "Flutterwave",
+                        description: "International cards, Apple Pay & transfers (USD $, GBP £, EUR €, CAD $)",
+                        badge: "International",
+                        Icon: Globe2,
                       },
                     ] as const).map(({ id, title, description, badge, Icon }) => (
                       <button
@@ -423,7 +436,7 @@ export default function GivePage() {
                             setCurrency("NGN");
                             if (Number(amount) < 100) setAmount("10000");
                           }
-                          if (id === "PAYPAL") {
+                          if (id === "FLUTTERWAVE") {
                             if (currency === "NGN") setCurrency("USD");
                             if (Number(amount) > 1000) setAmount("25");
                           }
@@ -467,7 +480,7 @@ export default function GivePage() {
                           setProvider("PAYSTACK");
                           if (Number(amount) < 100) setAmount("10000");
                         } else {
-                          setProvider("PAYPAL");
+                          setProvider("FLUTTERWAVE");
                           if (Number(amount) > 1000) setAmount("25");
                         }
                       }}
@@ -484,19 +497,25 @@ export default function GivePage() {
                       <MenuItem value="USD">
                         <div className="flex w-full items-center justify-between gap-2">
                           <span>USD · $</span>
-                          <span className="text-[10px] font-semibold text-slate-400">PayPal</span>
+                          <span className="text-[10px] font-semibold text-slate-400">Flutterwave</span>
                         </div>
                       </MenuItem>
                       <MenuItem value="GBP">
                         <div className="flex w-full items-center justify-between gap-2">
                           <span>GBP · £</span>
-                          <span className="text-[10px] font-semibold text-slate-400">PayPal</span>
+                          <span className="text-[10px] font-semibold text-slate-400">Flutterwave</span>
                         </div>
                       </MenuItem>
                       <MenuItem value="EUR">
                         <div className="flex w-full items-center justify-between gap-2">
                           <span>EUR · €</span>
-                          <span className="text-[10px] font-semibold text-slate-400">PayPal</span>
+                          <span className="text-[10px] font-semibold text-slate-400">Flutterwave</span>
+                        </div>
+                      </MenuItem>
+                      <MenuItem value="CAD">
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>CAD · C$</span>
+                          <span className="text-[10px] font-semibold text-slate-400">Flutterwave</span>
                         </div>
                       </MenuItem>
                     </TextField>
@@ -615,7 +634,7 @@ export default function GivePage() {
                   </div>
                   <div className="flex justify-between gap-4">
                     <span className="text-slate-600">Payment method</span>
-                    <span className="font-semibold text-ink">{provider === "PAYSTACK" ? "Paystack" : "PayPal"}</span>
+                    <span className="font-semibold text-ink">{provider === "PAYSTACK" ? "Paystack" : provider === "FLUTTERWAVE" ? "Flutterwave" : "PayPal"}</span>
                   </div>
                 </div>
                 <div className="flex items-end justify-between gap-4 py-5">

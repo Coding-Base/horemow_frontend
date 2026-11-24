@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LEADERSHIP_IMAGES, CONFERENCE_GALLERY_IMAGES, type ConferenceImage } from "../data/mediaAssets";
 import { getValidAccessToken, refreshAccessToken } from "./auth";
+import { fetchPublicationsApi } from "./publicationApi";
 import {
   sermons as initialSermons,
   publications as initialPublications,
@@ -503,6 +504,19 @@ export const getPublicationsContent = (): Publication[] => {
 };
 export const savePublicationsContent = (d: Publication[]) => saveToStorage("publications", d);
 
+export async function syncPublicationsFromBackend(): Promise<Publication[]> {
+  try {
+    const list = await fetchPublicationsApi();
+    if (Array.isArray(list) && list.length > 0) {
+      savePublicationsContent(list);
+      return list;
+    }
+  } catch (err) {
+    console.warn("syncPublicationsFromBackend error:", err);
+  }
+  return getPublicationsContent();
+}
+
 const VALID_PASTOR_RIKA_PHOTO = "https://res.cloudinary.com/dae0htmcz/image/upload/v1794987729/pastor_paul_rika_ynemhk.jpg";
 
 export const getLocationsContent = (): FellowshipLocation[] => {
@@ -780,7 +794,7 @@ export interface TransactionItem {
   donor_name: string;
   donor_email: string;
   donor_phone?: string;
-  provider: "PAYSTACK" | "PAYPAL";
+  provider: "PAYSTACK" | "FLUTTERWAVE" | "PAYPAL";
   status: "SUCCESSFUL" | "PENDING" | "FAILED";
   created_at: string;
   completed_at?: string;
@@ -836,7 +850,7 @@ export async function syncTransactionsFromBackend(): Promise<TransactionItem[]> 
       donor_name: item.donor_name || (item.is_anonymous ? "Anonymous Donor" : "Ministry Partner"),
       donor_email: item.donor_email || "",
       donor_phone: item.donor_phone || "",
-      provider: (item.provider === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "PAYPAL",
+      provider: (item.provider === "FLUTTERWAVE" ? "FLUTTERWAVE" : item.provider === "PAYPAL" ? "PAYPAL" : "PAYSTACK") as "PAYSTACK" | "FLUTTERWAVE" | "PAYPAL",
       status: (item.status === "SUCCESSFUL" ? "SUCCESSFUL" : item.status === "FAILED" ? "FAILED" : "PENDING") as "SUCCESSFUL" | "PENDING" | "FAILED",
       created_at: item.created_at || new Date().toISOString(),
       completed_at: item.completed_at || undefined,
@@ -985,7 +999,13 @@ export const useEventsContent = () => useCmsDomain("events", getEventsContent);
 export const useHomepageAnnouncement = () =>
   useCmsDomain("homepageAnnouncement", getHomepageAnnouncement);
 export const useGalleryContent = () => useCmsDomain("gallery", getGalleryContent);
-export const usePublicationsContent = () => useCmsDomain("publications", getPublicationsContent);
+export const usePublicationsContent = () => {
+  const data = useCmsDomain("publications", getPublicationsContent);
+  useEffect(() => {
+    syncPublicationsFromBackend().catch(() => {});
+  }, []);
+  return data;
+};
 export const useLocationsContent = () => useCmsDomain("locations", getLocationsContent);
 export const useGivingContent = () => useCmsDomain("giving", getGivingContent);
 export const useBlogContent = () => useCmsDomain("blog", getBlogContent);

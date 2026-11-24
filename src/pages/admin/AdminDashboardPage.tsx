@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
     {
       label: "Total offerings",
       value: `₦${totalOfferingsNGN.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
-      detail: `${confirmedTransactions} confirmed (Paystack & PayPal)`,
+      detail: `${confirmedTransactions} confirmed (Paystack & Flutterwave)`,
       icon: Wallet,
       href: "/admin/transactions",
       tone: "gold",

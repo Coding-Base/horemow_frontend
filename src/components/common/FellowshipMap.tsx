@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Globe2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FellowshipLocation } from "../../lib/locationTypes";
@@ -178,7 +179,7 @@ export default function FellowshipMap({
             </span>
             ${
               loc.isHeadquarters
-                ? `<span style="font-size: 10px; font-weight: 800; color: #d97706; background: #fef3c7; padding: 2px 6px; border-radius: 4px;">★ HQ</span>`
+                ? `<span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #d97706; background: #fef3c7; padding: 2px 6px; border-radius: 4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="#d97706" stroke="#d97706" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> HQ</span>`
                 : ""
             }
           </div>
@@ -217,14 +218,16 @@ export default function FellowshipMap({
             ${
               cleanPhone
                 ? `
-              <a href="tel:${cleanPhone}" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; border-radius: 6px; background: #1a4b8c; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
-                📞 Call
+              <a href="tel:${cleanPhone}" style="display: flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border-radius: 6px; background: #1a4b8c; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                <span>Call</span>
               </a>
               `
                 : ""
             }
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; border-radius: 6px; background: #f1f5f9; color: #1a4b8c; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; border: 1px solid #cbd5e1;">
-              🧭 Directions
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border-radius: 6px; background: #f1f5f9; color: #1a4b8c; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; border: 1px solid #cbd5e1;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+              <span>Directions</span>
             </a>
           </div>
         </div>
@@ -321,7 +324,7 @@ export default function FellowshipMap({
             title="Reset map view to show all chapters worldwide"
             type="button"
           >
-            <span>🌍</span>
+            <Globe2 size={13} className="text-brand-blue shrink-0" />
             <span>View All ({locations.length})</span>
           </button>
         </div>

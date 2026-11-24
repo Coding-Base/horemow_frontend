@@ -115,7 +115,7 @@ export default function AdminTransactionsPage() {
         <div>
           <Eyebrow>Financial Stewardship & Audit</Eyebrow>
           <SectionHeading
-            description="Real-time transaction ledger for Paystack and PayPal offerings. Filter records, inspect audit receipts, and export ledger summaries."
+            description="Real-time transaction ledger for Paystack and Flutterwave offerings. Filter records, inspect audit receipts, and export ledger summaries."
             title="Transactions & Giving Ledger"
           />
         </div>
@@ -162,7 +162,7 @@ export default function AdminTransactionsPage() {
             ${totalVolumeUSD.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="mt-1 block text-[11px] text-brand-blue font-semibold">
-            PayPal International Gifts
+            Flutterwave International Gifts
           </span>
         </div>
 
@@ -184,8 +184,8 @@ export default function AdminTransactionsPage() {
             <span className="flex items-center gap-1 rounded bg-soft-blue px-2 py-0.5 text-brand-blue">
               <ShieldCheck size={12} /> Paystack
             </span>
-            <span className="flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-slate-800">
-              <ShieldCheck size={12} /> PayPal
+            <span className="flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-amber-700">
+              <ShieldCheck size={12} /> Flutterwave
             </span>
           </div>
           <span className="mt-1 block text-[11px] text-slate-500 font-semibold">
@@ -231,6 +231,7 @@ export default function AdminTransactionsPage() {
           >
             <option value="ALL">All Gateways</option>
             <option value="PAYSTACK">Paystack</option>
+            <option value="FLUTTERWAVE">Flutterwave</option>
             <option value="PAYPAL">PayPal</option>
           </select>
         </div>
@@ -266,7 +267,7 @@ export default function AdminTransactionsPage() {
                       <p className="max-w-md text-xs text-slate-500">
                         {isSyncing
                           ? "Connecting to the financial gateway and retrieving audited transaction logs."
-                          : "Verified online giving transactions via Paystack and PayPal will automatically register here with transaction reference numbers, donor receipts, and financial audit logs."}
+                          : "Verified online giving transactions via Paystack and Flutterwave will automatically register here with transaction reference numbers, donor receipts, and financial audit logs."}
                       </p>
                     </div>
                   </td>

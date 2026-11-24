@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Star,
 } from "lucide-react";
 import { MenuItem, Select } from "@mui/material";
 import { useState, useRef } from "react";
@@ -213,8 +214,8 @@ export default function LocationsPage() {
           <div ref={mapSectionRef}>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="grid size-6 place-items-center rounded-full bg-brand-blue text-white text-[11px] font-bold">
-                  📍
+                <span className="grid size-6 place-items-center rounded-full bg-brand-blue text-white">
+                  <MapPin size={13} />
                 </span>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   Interactive Chapter Map ({filteredLocations.length} Locations)
@@ -322,8 +323,9 @@ export default function LocationsPage() {
                     <h2 className="mt-4 text-xl font-bold leading-tight tracking-tight text-ink">
                       {loc.name}{" "}
                       {loc.isHeadquarters && (
-                        <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1.5">
-                          ★ International Headquarters
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full ml-1.5">
+                          <Star size={11} className="fill-amber-600 text-amber-600 shrink-0" />
+                          International Headquarters
                         </span>
                       )}
                     </h2>

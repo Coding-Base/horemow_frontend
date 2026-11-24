@@ -611,8 +611,9 @@ export default function AdminLocationsManager() {
                         </span>
                       )}
                       {typeof loc.latitude === "number" && typeof loc.longitude === "number" && (
-                        <span className="rounded bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-mono">
-                          📍 {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
+                        <span className="inline-flex items-center rounded bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-mono">
+                          <MapPin size={10} className="mr-1 text-slate-500 shrink-0" />
+                          {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
                         </span>
                       )}
                     </div>
