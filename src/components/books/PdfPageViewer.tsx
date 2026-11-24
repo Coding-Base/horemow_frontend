@@ -13,6 +13,7 @@ interface PdfPageViewerProps {
   scale?: number;
   onTotalPagesLoaded: (totalPages: number) => void;
   onPageRendered?: () => void;
+  onSwitchToTextMode?: () => void;
 }
 
 export default function PdfPageViewer({
@@ -21,6 +22,7 @@ export default function PdfPageViewer({
   scale = 1.3,
   onTotalPagesLoaded,
   onPageRendered,
+  onSwitchToTextMode,
 }: PdfPageViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -141,15 +143,26 @@ export default function PdfPageViewer({
         <AlertCircle className="text-red-500 mb-2" size={36} />
         <h4 className="font-bold text-slate-800 text-sm">Cannot Render PDF Directly</h4>
         <p className="text-xs text-slate-500 mt-1 mb-4">{error}</p>
-        <a
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-blue px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#143A6D] transition"
-          download
-          href={pdfUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Download PDF to Read Offline
-        </a>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {onSwitchToTextMode && (
+            <button
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-blue px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#143A6D] transition"
+              onClick={onSwitchToTextMode}
+              type="button"
+            >
+              Read in Text Reader Mode
+            </button>
+          )}
+          <a
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            download
+            href={pdfUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Download PDF
+          </a>
+        </div>
       </div>
     );
   }

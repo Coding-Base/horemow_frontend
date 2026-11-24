@@ -444,6 +444,7 @@ export default function BookReaderModal({ book, isOpen, onClose }: BookReaderMod
               <div className="relative w-full max-w-4xl flex-1 flex flex-col items-center justify-center">
                 <PdfPageViewer
                   currentPage={pdfCurrentPage}
+                  onSwitchToTextMode={() => setDisplayMode("reader")}
                   onTotalPagesLoaded={(total) => setPdfTotalPages(Math.max(1, total))}
                   pdfUrl={book.fileUrl}
                   scale={pdfScale}
